@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">Nyari</string>
+  <string name="google_maps_key" translatable="false">AIzaSyAg5Z7TMXcNTJtgjD2AVwAsSAxb8qOBgdU</string>
+</resources>

@@ -1,0 +1,28 @@
+﻿# Flutter & Dart
+.dart_tool/
+.packages
+.pub-cache/
+build/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+macos/Flutter/ephemeral/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/.symlinks/
+ios/Pods/
+ios/Podfile.lock
+android/.gradle/
+android/app/build/
+android/local.properties
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase config (optional to commit)
+# ios/Runner/GoogleService-Info.plist
+# android/app/google-services.json

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "113120647809",
+    "project_id": "nyari-6f49b",
+    "storage_bucket": "nyari-6f49b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:113120647809:android:fc6162618f7780ebb84b80",
+        "android_client_info": {
+          "package_name": "com.nyari.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFAehMWz01RLezeBiHzrdcvooVkAWQ25Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
