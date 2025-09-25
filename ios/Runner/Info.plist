@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Required for App Store review: explain why you use location -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Nyari uses your location to show nearby places on the map.</string>
 </dict>
 </plist>
