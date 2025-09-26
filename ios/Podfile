@@ -1,7 +1,7 @@
 # ios/Podfile
 
 # Minimum iOS version (required by google_mlkit_commons and newer Firebase)
-platform :ios, '15.5'
+platform :ios, '13.0'
 
 # Good defaults for Flutter pods
 use_frameworks! :linkage => :static
