@@ -1,13 +1,10 @@
 # ios/Podfile
 
-# Minimum iOS version (required by google_mlkit_commons and newer Firebase)
-platform :ios, '13.0'
+platform :ios, '13.0'   # straight quotes
 
-# Good defaults for Flutter pods
 use_frameworks! :linkage => :static
 use_modular_headers!
 
-# Flutter helper
 require File.expand_path(File.join('..', 'Flutter', 'podhelper'), __FILE__)
 flutter_ios_podfile_setup
 
@@ -16,12 +13,11 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  # Ensure ALL pods (and Xcode build settings for pods) target iOS 15.5
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      # Keep pods at the same minimum as the app
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end
-    # Keep Flutter’s extra settings (bitcode off, etc.)
     flutter_additional_ios_build_settings(t)
   end
 end
