@@ -26,3 +26,8 @@ Thumbs.db
 # Firebase config (optional to commit)
 # ios/Runner/GoogleService-Info.plist
 # android/app/google-services.json
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+ios/Pods/
+ios/Podfile.lock
