@@ -7,15 +7,27 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Optional: detect connectivity -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Optional: if you ever request background location on Android 10+ -->
+    <!-- <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> -->
+
+    <!-- (Optional but recommended) Declare you use GPS/location hardware -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
 
     <application
-        android:label="@string/app_name"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="false">
 
-        <!-- Google Maps API key -->
+        <!-- Google Maps API key (points to res/values/google_maps_api.xml) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />
+
+        <!-- If you use Places on Android (autocomplete/details), include this too -->
+        <meta-data
+            android:name="com.google.android.libraries.places.API_KEY"
             android:value="@string/google_maps_key" />
 
         <activity
@@ -43,11 +55,13 @@
             android:value="2" />
     </application>
 
-    <!-- (Optional) Keep if you really use PROCESS_TEXT -->
+    <!-- (Optional) Only keep this if your app actually uses PROCESS_TEXT -->
+    <!--
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
     </queries>
+    -->
 </manifest>
