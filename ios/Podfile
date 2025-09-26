@@ -1,11 +1,24 @@
-# --- Force CocoaPods to use Codemagic's Flutter SDK path ---
-ENV['FLUTTER_ROOT'] = File.expand_path('~/programs/flutter')
+# ios/Podfile
 
 platform :ios, '15.5'
 use_frameworks! :linkage => :static
 use_modular_headers!
 
-require File.expand_path(File.join('..', 'Flutter', 'podhelper'), __FILE__)
+# ---- BEGIN: robust Flutter path fix ----
+flutter_bin = ENV['FLUTTER_BIN'] || `which flutter`.strip
+flutter_root =
+  if ENV['FLUTTER_ROOT'] && !ENV['FLUTTER_ROOT'].empty?
+    ENV['FLUTTER_ROOT']
+  elsif !flutter_bin.empty?
+    File.expand_path('..', flutter_bin) # .../flutter/bin -> .../flutter
+  else
+    # Codemagic default install location
+    File.expand_path('~/programs/flutter')
+  end
+
+require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'))
+# ---- END: robust Flutter path fix ----
+
 flutter_ios_podfile_setup
 
 target 'Runner' do
@@ -15,10 +28,8 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      # Ensure the deployment target is high enough for Google Maps & newer pods
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
     end
-    # Keep Flutter/Xcode flags CocoaPods expects
     flutter_additional_ios_build_settings(t)
   end
 end
