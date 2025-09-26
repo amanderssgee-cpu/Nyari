@@ -1,7 +1,4 @@
-# ios/Podfile
-
-platform :ios, '13.0'   # straight quotes
-
+platform :ios, '15.5'
 use_frameworks! :linkage => :static
 use_modular_headers!
 
@@ -15,8 +12,7 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      # Keep pods at the same minimum as the app
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
     end
     flutter_additional_ios_build_settings(t)
   end
