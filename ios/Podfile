@@ -27,7 +27,7 @@ target 'Runner' do
   # ---- Pin transitive pods to stable, trunk-available versions ----
   pod 'gRPC-C++',  '1.62.0'
   pod 'gRPC-Core', '1.62.0'
-  pod 'abseil',    '1.20240116.2'
+  pod 'abseil',    '1.20240116.1'   # <-- align with gRPC-Core 1.62.0
   pod 'Protobuf',  '3.24.4'
   # ---------------------------------------------------------------
 end
