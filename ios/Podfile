@@ -26,35 +26,39 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  # Pods that need C++17 under Xcode 16
-  cpp17_targets = [
-    'gRPC', 'gRPC-Core', 'gRPC-C++', 'gRPC-ProtoRPC',
-    'abseil', 'Abseil', 'absl', 'Protobuf'
-  ]
-
   installer.pods_project.targets.each do |target|
-    # Force your deployment target
+    # 1) Force deployment target
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+
+      # 2) Enforce C / C++ standards GLOBALLY (works even if Flutter "upgrades" the Podfile)
+      config.build_settings['GCC_C_LANGUAGE_STANDARD'] = 'gnu11'
+      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+
+      cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
+      cppflags = cppflags.split if cppflags.is_a?(String)
+      cppflags = Array(cppflags)
+      cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
+      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
     end
 
-    # Keep Flutter's additional settings (safe-guarded)
+    # Keep Flutter's additional settings safely
     begin
       flutter_additional_ios_build_settings(target)
     rescue
     end
 
-    # ---- BEGIN: Strip unsupported '-G...' flags from any BoringSSL target ----
+    # 3) Strip unsupported '-G...' flags from ANY BoringSSL target
     if target.name.include?('BoringSSL')
-      # Clean per-file compiler flags
+      # Per-file flags
       target.source_build_phase.files.each do |file|
         s = file.settings
         next unless s && s['COMPILER_FLAGS']
         flags = s['COMPILER_FLAGS'].is_a?(String) ? s['COMPILER_FLAGS'].split : Array(s['COMPILER_FLAGS'])
-        flags.reject! { |f| f.start_with?('-G') } # remove -G* flags
+        flags.reject! { |f| f.start_with?('-G') }
         s['COMPILER_FLAGS'] = flags.join(' ')
       end
-      # Clean target-wide flags just in case
+      # Target-wide flags
       target.build_configurations.each do |config|
         %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |key|
           next unless config.build_settings[key]
@@ -66,24 +70,5 @@ post_install do |installer|
       end
       puts ">> Patched flags for #{target.name}"
     end
-    # ---- END: Strip unsupported '-G...' flags from any BoringSSL target ----
-
-    # ---- BEGIN: Enforce C++17 for gRPC/Abseil/Protobuf ----
-    if cpp17_targets.any? { |name| target.name.include?(name) }
-      target.build_configurations.each do |config|
-        # Language standards
-        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-        config.build_settings['GCC_C_LANGUAGE_STANDARD']   = 'gnu11'
-
-        # Ensure -std=gnu++17 is present in C++ flags
-        flags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
-        flags = flags.split if flags.is_a?(String)
-        flags = Array(flags)
-        flags << '-std=gnu++17' unless flags.include?('-std=gnu++17')
-        config.build_settings['OTHER_CPLUSPLUSFLAGS'] = flags
-      end
-      puts ">> Enforced C++17 for #{target.name}"
-    end
-    # ---- END: Enforce C++17 for gRPC/Abseil/Protobuf ----
   end
 end
