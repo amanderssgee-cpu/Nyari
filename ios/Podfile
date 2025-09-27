@@ -26,31 +26,67 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # ---- Project-wide defaults (belt-and-suspenders) ----
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+    config.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
+    config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+
+    # Ensure -std=gnu++17 is present and inherited
+    cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
+    cppflags = cppflags.split if cppflags.is_a?(String)
+    cppflags = Array(cppflags)
+    cppflags << '$(inherited)' unless cppflags.include?('$(inherited)')
+    cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
+    config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
+
+    # (Optional compat) Allow removed C++98 constructs if any pod references them
+    cflags = config.build_settings['OTHER_CFLAGS']
+    cflags = cflags.split if cflags.is_a?(String)
+    cflags = Array(cflags)
+    cflags << '$(inherited)' unless cflags.include?('$(inherited)')
+    cflags |= %w[
+      -D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR
+      -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
+    ]
+    config.build_settings['OTHER_CFLAGS'] = cflags
+  end
+
   installer.pods_project.targets.each do |target|
-    # 1) Force deployment target
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-
-      # 2) Enforce C / C++ standards GLOBALLY (works even if Flutter "upgrades" the Podfile)
-      config.build_settings['GCC_C_LANGUAGE_STANDARD'] = 'gnu11'
-      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-
-      cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
-      cppflags = cppflags.split if cppflags.is_a?(String)
-      cppflags = Array(cppflags)
-      cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
-      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
-    end
-
-    # Keep Flutter's additional settings safely
+    # Keep Flutter's additional settings (if available)
     begin
       flutter_additional_ios_build_settings(target)
     rescue
     end
 
-    # 3) Strip unsupported '-G...' flags from ANY BoringSSL target
+    # ---- Target-level enforcement ----
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      config.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
+      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+
+      # Ensure -std=gnu++17 is present and inherited
+      cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
+      cppflags = cppflags.split if cppflags.is_a?(String)
+      cppflags = Array(cppflags)
+      cppflags << '$(inherited)' unless cppflags.include?('$(inherited)')
+      cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
+      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
+
+      # Optional compat defines (see above)
+      cflags = config.build_settings['OTHER_CFLAGS']
+      cflags = cflags.split if cflags.is_a?(String)
+      cflags = Array(cflags)
+      cflags << '$(inherited)' unless cflags.include?('$(inherited)')
+      cflags |= %w[
+        -D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR
+        -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
+      ]
+      config.build_settings['OTHER_CFLAGS'] = cflags
+    end
+
+    # ---- Strip unsupported '-G...' flags from any BoringSSL target ----
     if target.name.include?('BoringSSL')
-      # Per-file flags
       target.source_build_phase.files.each do |file|
         s = file.settings
         next unless s && s['COMPILER_FLAGS']
@@ -58,7 +94,6 @@ post_install do |installer|
         flags.reject! { |f| f.start_with?('-G') }
         s['COMPILER_FLAGS'] = flags.join(' ')
       end
-      # Target-wide flags
       target.build_configurations.each do |config|
         %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |key|
           next unless config.build_settings[key]
