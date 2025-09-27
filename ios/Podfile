@@ -26,6 +26,12 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # Pods that need C++17 under Xcode 16
+  cpp17_targets = [
+    'gRPC', 'gRPC-Core', 'gRPC-C++', 'gRPC-ProtoRPC',
+    'abseil', 'Abseil', 'absl', 'Protobuf'
+  ]
+
   installer.pods_project.targets.each do |target|
     # Force your deployment target
     target.build_configurations.each do |config|
@@ -48,7 +54,6 @@ post_install do |installer|
         flags.reject! { |f| f.start_with?('-G') } # remove -G* flags
         s['COMPILER_FLAGS'] = flags.join(' ')
       end
-
       # Clean target-wide flags just in case
       target.build_configurations.each do |config|
         %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |key|
@@ -59,9 +64,26 @@ post_install do |installer|
           config.build_settings[key] = flags
         end
       end
-
       puts ">> Patched flags for #{target.name}"
     end
     # ---- END: Strip unsupported '-G...' flags from any BoringSSL target ----
+
+    # ---- BEGIN: Enforce C++17 for gRPC/Abseil/Protobuf ----
+    if cpp17_targets.any? { |name| target.name.include?(name) }
+      target.build_configurations.each do |config|
+        # Language standards
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+        config.build_settings['GCC_C_LANGUAGE_STANDARD']   = 'gnu11'
+
+        # Ensure -std=gnu++17 is present in C++ flags
+        flags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
+        flags = flags.split if flags.is_a?(String)
+        flags = Array(flags)
+        flags << '-std=gnu++17' unless flags.include?('-std=gnu++17')
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] = flags
+      end
+      puts ">> Enforced C++17 for #{target.name}"
+    end
+    # ---- END: Enforce C++17 for gRPC/Abseil/Protobuf ----
   end
 end
