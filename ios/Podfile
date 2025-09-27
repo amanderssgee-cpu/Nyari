@@ -23,6 +23,14 @@ flutter_ios_podfile_setup
 
 target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # ---- Pin transitive pods that can pull problematic gRPC sources ----
+  # These versions are stable with Xcode 16 and compile cleanly under C++17.
+  pod 'gRPC-C++',  '1.62.2'
+  pod 'gRPC-Core', '1.62.2'
+  pod 'abseil',    '1.20240116.2'
+  pod 'Protobuf',  '3.24.4'
+  # ---------------------------------------------------------------
 end
 
 post_install do |installer|
@@ -40,7 +48,7 @@ post_install do |installer|
     cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
     config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
 
-    # (Optional compat) Allow removed C++98 constructs if any pod references them
+    # Optional compat (harmless): allow a few removed C++98 constructs if any pod uses them
     cflags = config.build_settings['OTHER_CFLAGS']
     cflags = cflags.split if cflags.is_a?(String)
     cflags = Array(cflags)
@@ -65,7 +73,6 @@ post_install do |installer|
       config.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
       config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
 
-      # Ensure -std=gnu++17 is present and inherited
       cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
       cppflags = cppflags.split if cppflags.is_a?(String)
       cppflags = Array(cppflags)
@@ -73,7 +80,6 @@ post_install do |installer|
       cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
       config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
 
-      # Optional compat defines (see above)
       cflags = config.build_settings['OTHER_CFLAGS']
       cflags = cflags.split if cflags.is_a?(String)
       cflags = Array(cflags)
