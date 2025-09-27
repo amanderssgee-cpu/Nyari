@@ -25,36 +25,31 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# If you have test targets, you can add them too:
-# target 'RunnerTests' do
-#   inherit! :search_paths
-# end
-
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    # Keep your deployment target override
+    # Force your deployment target
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
     end
 
-    # Keep Flutter's additional build settings
+    # Keep Flutter's additional settings (safe-guarded)
     begin
       flutter_additional_ios_build_settings(target)
     rescue
     end
 
-    # ---- BEGIN: Strip unsupported '-G...' flags from BoringSSL-GRPC ----
-    if target.name == 'BoringSSL-GRPC'
-      # 1) Clean per-file compiler flags
+    # ---- BEGIN: Strip unsupported '-G...' flags from any BoringSSL target ----
+    if target.name.include?('BoringSSL')
+      # Clean per-file compiler flags
       target.source_build_phase.files.each do |file|
         s = file.settings
         next unless s && s['COMPILER_FLAGS']
         flags = s['COMPILER_FLAGS'].is_a?(String) ? s['COMPILER_FLAGS'].split : Array(s['COMPILER_FLAGS'])
-        flags.reject! { |f| f.start_with?('-G') } # removes '-G...' variants
+        flags.reject! { |f| f.start_with?('-G') } # remove -G* flags
         s['COMPILER_FLAGS'] = flags.join(' ')
       end
 
-      # 2) Clean target-level OTHER_CFLAGS / OTHER_CPLUSPLUSFLAGS just in case
+      # Clean target-wide flags just in case
       target.build_configurations.each do |config|
         %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |key|
           next unless config.build_settings[key]
@@ -64,7 +59,9 @@ post_install do |installer|
           config.build_settings[key] = flags
         end
       end
+
+      puts ">> Patched flags for #{target.name}"
     end
-    # ---- END: Strip unsupported '-G...' flags from BoringSSL-GRPC ----
+    # ---- END: Strip unsupported '-G...' flags from any BoringSSL target ----
   end
 end
