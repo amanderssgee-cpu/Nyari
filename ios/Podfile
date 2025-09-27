@@ -24,10 +24,9 @@ flutter_ios_podfile_setup
 target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # ---- Pin transitive pods that can pull problematic gRPC sources ----
-  # These versions are stable with Xcode 16 and compile cleanly under C++17.
-  pod 'gRPC-C++',  '1.62.2'
-  pod 'gRPC-Core', '1.62.2'
+  # ---- Pin transitive pods to stable, trunk-available versions ----
+  pod 'gRPC-C++',  '1.62.0'
+  pod 'gRPC-Core', '1.62.0'
   pod 'abseil',    '1.20240116.2'
   pod 'Protobuf',  '3.24.4'
   # ---------------------------------------------------------------
@@ -48,7 +47,7 @@ post_install do |installer|
     cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
     config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
 
-    # Optional compat (harmless): allow a few removed C++98 constructs if any pod uses them
+    # Optional compat for older constructs
     cflags = config.build_settings['OTHER_CFLAGS']
     cflags = cflags.split if cflags.is_a?(String)
     cflags = Array(cflags)
@@ -61,7 +60,7 @@ post_install do |installer|
   end
 
   installer.pods_project.targets.each do |target|
-    # Keep Flutter's additional settings (if available)
+    # Keep Flutter's additional settings if available
     begin
       flutter_additional_ios_build_settings(target)
     rescue
