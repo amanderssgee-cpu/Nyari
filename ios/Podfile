@@ -1,8 +1,7 @@
-# nyaris/ios/Podfile
+# ios/Podfile
 
 platform :ios, '15.5'
 
-# Use CDN, keep logs quiet in CI
 source 'https://cdn.cocoapods.org/'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
@@ -31,33 +30,32 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # ✅ Build plugins as static frameworks (stable with Firebase/MLKit/gRPC on Xcode 16)
+  # ✅ Stable with Firebase/MLKit/gRPC on Xcode 16
   use_frameworks! :linkage => :static
 
-  # Add all Flutter plugin pods
+  # Pull in all Flutter plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-
-  # If you have test targets, add their pods here.
 end
 
 post_install do |installer|
-  # Apply Flutter’s per-target settings (correct usage)
   installer.pods_project.targets.each do |target|
+    # Apply Flutter’s extra settings to each pod target (correct usage)
     flutter_additional_ios_build_settings(target)
 
     target.build_configurations.each do |config|
-      # --- Stability for Xcode 16 explicit modules/PCM ---
+      # --- Xcode 16 explicit-modules stability ---
       config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
       config.build_settings['DEFINES_MODULE'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
 
-      # --- Keep toolchain consistent ---
+      # --- Toolchain consistency ---
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
       config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
       config.build_settings['SWIFT_VERSION'] = '5.0'
 
-      # If you ever see rare arch issues on device, uncomment:
-      # config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'arm64e'
+      # Rarely needed, but harmless and avoids edge crashes on device archives
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'arm64e'
     end
   end
 
@@ -66,7 +64,7 @@ post_install do |installer|
     config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
   end
 
-  # Xcode 16 compatibility shim (present on newer Flutter)
+  # Xcode 16 compatibility shim (present on newer Flutter channels)
   if defined?(__apply_Xcode_16_compatibility_fix)
     __apply_Xcode_16_compatibility_fix(installer)
   end
