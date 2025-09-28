@@ -2,7 +2,6 @@
 
 platform :ios, '15.5'
 
-# Use CDN for specs and keep logs quiet in CI
 source 'https://cdn.cocoapods.org/'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
@@ -13,7 +12,7 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# --- Resolve FLUTTER_ROOT reliably in CI from Generated.xcconfig ---
+# Resolve FLUTTER_ROOT from Generated.xcconfig (CI-safe)
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
@@ -27,25 +26,24 @@ def flutter_root
 end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
-
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep Flutter static linking (NO use_frameworks!)
-  use_modular_headers!   # Needed for Firebase/Google pods when linked statically
+  # ✅ Use static frameworks (no global modular headers)
+  use_frameworks! :linkage => :static
 
+  # Do NOT call `use_modular_headers!` here.
+  # Flutter plugins (Firebase/MLKit/etc.) are added by this helper:
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-
-  # If you have test targets, add their pods here as needed.
 end
 
 post_install do |installer|
-  # ✅ Correct usage: apply Flutter build settings per TARGET (not the installer)
+  # Apply Flutter build settings to each target (correct usage)
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
 
-  # Consistent build settings for all pods (helps with Firestore/gRPC & Xcode 16)
+  # Keep the toolchain consistent
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
@@ -55,7 +53,7 @@ post_install do |installer|
     end
   end
 
-  # Call if present in your Flutter version (harmless if absent)
+  # Xcode 16 compatibility shim (present on newer Flutter)
   if defined?(__apply_Xcode_16_compatibility_fix)
     __apply_Xcode_16_compatibility_fix(installer)
   end
