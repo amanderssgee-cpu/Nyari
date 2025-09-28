@@ -24,10 +24,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -41,13 +43,26 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
-	<!-- Required for App Store review: explain why you use location -->
+	<!-- Location (When In Use) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nyari uses your location to show nearby places on the map.</string>
+
+	<!-- Camera / Photos (image_picker) -->
+	<key>NSCameraUsageDescription</key>
+	<string>We use the camera to let you take photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need photo library access to pick images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We save images to your photo library on request.</string>
+
+	<!-- If you ever request Always location, keep this key. Otherwise it's harmless but optional. -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Allow location access so we can keep your nearby results up to date.</string>
 </dict>
 </plist>
