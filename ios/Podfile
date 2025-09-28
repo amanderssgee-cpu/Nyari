@@ -1,6 +1,9 @@
-# ios/Podfile
+# nyaris/ios/Podfile
+
 platform :ios, '15.5'
 
+# Use CDN for specs and keep logs quiet in CI
+source 'https://cdn.cocoapods.org/'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
@@ -10,15 +13,15 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# --- Official Flutter way to locate FLUTTER_ROOT (works in CI) ---
+# --- Resolve FLUTTER_ROOT reliably in CI from Generated.xcconfig ---
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
     raise "#{generated_xcode_build_settings_path} must exist. Run `flutter pub get` first."
   end
   File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT\=(.*)/)
-    return matches[1].strip if matches
+    m = line.match(/FLUTTER_ROOT\=(.*)/)
+    return m[1].strip if m
   end
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}"
 end
@@ -28,16 +31,21 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep Flutter’s static linking (no use_frameworks!)
-  use_modular_headers!   # <-- required for Firebase/Google pods with static libs
+  # Keep Flutter static linking (NO use_frameworks!)
+  use_modular_headers!   # Needed for Firebase/Google pods when linked statically
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # If you have test targets, add their pods here as needed.
 end
 
 post_install do |installer|
-  flutter_additional_ios_build_settings(installer)
+  # ✅ Correct usage: apply Flutter build settings per TARGET (not the installer)
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
 
-  # Make sure all pods target the same iOS version and sane C++ settings
+  # Consistent build settings for all pods (helps with Firestore/gRPC & Xcode 16)
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
@@ -47,7 +55,7 @@ post_install do |installer|
     end
   end
 
-  # Newer Flutter templates include this; call if available (Xcode 16)
+  # Call if present in your Flutter version (harmless if absent)
   if defined?(__apply_Xcode_16_compatibility_fix)
     __apply_Xcode_16_compatibility_fix(installer)
   end
