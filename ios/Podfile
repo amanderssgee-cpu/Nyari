@@ -1,47 +1,37 @@
 # ios/Podfile
-
 platform :ios, '15.5'
 
-# ❌ Do NOT add: use_frameworks! or use_modular_headers!
-
-# ---- Flutter helper wiring ----
-flutter_bin = ENV['FLUTTER_BIN'] || `which flutter`.strip
-flutter_root =
-  if ENV['FLUTTER_ROOT'] && !ENV['FLUTTER_ROOT'].empty?
-    ENV['FLUTTER_ROOT']
-  elsif !flutter_bin.empty?
-    File.expand_path('..', flutter_bin)
-  else
-    File.expand_path('~/programs/flutter') # Codemagic default
-  end
-
-require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'))
+# Tell Flutter where it is
+flutter_root = File.expand_path('..', File.dirname(`which flutter`))
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 flutter_ios_podfile_setup
 
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
-
 target 'Runner' do
+  # DO NOT enable use_frameworks! unless you absolutely need it.
+  # keep static linking; that's Flutter's default and works fine.
+
+  ▶ use_modular_headers!   # <— THE IMPORTANT BIT
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # If you have unit/UI test targets, they go here too.
 end
 
 post_install do |installer|
+  flutter_additional_ios_build_settings(installer)
+
+  # Keep deployment target & C++ settings sane for Firestore/grpc
   installer.pods_project.targets.each do |t|
-    t.build_configurations.each do |bc|
-      bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-      bc.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
-      bc.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-      # Uncomment only if a header error persists:
-      # bc.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    t.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+      config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
     end
   end
 
-  begin
-    __apply_Xcode_12_5_M1_post_install(installer)
-  rescue
+  # Flutter ships this in newer templates; safe to call if present
+  if defined?(__apply_Xcode_16_compatibility_fix)
+    __apply_Xcode_16_compatibility_fix(installer)
   end
 end
