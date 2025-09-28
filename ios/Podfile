@@ -2,17 +2,15 @@
 
 platform :ios, '15.5'
 
-# Build plugins (incl. Firebase) as STATIC frameworks (Flutter default now)
-use_frameworks! :linkage => :static
-# DO NOT add: use_modular_headers!  (causes Flutter/Flutter.h not found on Xcode 16)
+# ❌ Do NOT add: use_frameworks! or use_modular_headers! here
 
-# ---- Robust Flutter path (works on CI & local) ----
+# ---- Flutter helper wiring ----
 flutter_bin = ENV['FLUTTER_BIN'] || `which flutter`.strip
 flutter_root =
   if ENV['FLUTTER_ROOT'] && !ENV['FLUTTER_ROOT'].empty?
     ENV['FLUTTER_ROOT']
   elsif !flutter_bin.empty?
-    File.expand_path('..', flutter_bin) # .../flutter/bin -> .../flutter
+    File.expand_path('..', flutter_bin)
   else
     File.expand_path('~/programs/flutter') # Codemagic default
   end
@@ -29,7 +27,6 @@ project 'Runner', {
 
 target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  # DO NOT pin gRPC/abseil/Protobuf here — let CocoaPods resolve
 end
 
 post_install do |installer|
@@ -38,8 +35,8 @@ post_install do |installer|
       bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       bc.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
       bc.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-      # If (and only if) you still hit “non-modular header” after the steps below,
-      # uncomment the next line, rebuild once, then remove it later:
+      # If (and only if) you STILL see a header error after this change,
+      # uncomment the next line, rebuild once, then remove it:
       # bc.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
     end
   end
