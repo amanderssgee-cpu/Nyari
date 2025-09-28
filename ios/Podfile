@@ -1,10 +1,12 @@
 # ios/Podfile
 
 platform :ios, '15.5'
+
+# Build plugins (incl. Firebase) as STATIC frameworks (FlutterFire default)
 use_frameworks! :linkage => :static
 use_modular_headers!
 
-# ---- BEGIN: robust Flutter path fix ----
+# ---- Robust Flutter path (works on CI & local) ----
 flutter_bin = ENV['FLUTTER_BIN'] || `which flutter`.strip
 flutter_root =
   if ENV['FLUTTER_ROOT'] && !ENV['FLUTTER_ROOT'].empty?
@@ -12,103 +14,48 @@ flutter_root =
   elsif !flutter_bin.empty?
     File.expand_path('..', flutter_bin) # .../flutter/bin -> .../flutter
   else
-    # Codemagic default install location
-    File.expand_path('~/programs/flutter')
+    File.expand_path('~/programs/flutter') # Codemagic default
   end
 
 require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'))
-# ---- END: robust Flutter path fix ----
 
 flutter_ios_podfile_setup
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
 
 target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # ---- Pin transitive pods to stable, trunk-available versions ----
-  pod 'gRPC-C++',  '1.62.0'
-  pod 'gRPC-Core', '1.62.0'
-  pod 'abseil',    '1.20240116.1'   # <-- align with gRPC-Core 1.62.0
-  pod 'Protobuf',  '3.24.4'
-  # ---------------------------------------------------------------
+  # ⛔️ Do NOT pin gRPC/abseil/Protobuf here — let CocoaPods resolve
+  # (Pins to older versions will conflict with Firebase on Xcode 16)
 end
 
 post_install do |installer|
-  # ---- Project-wide defaults (belt-and-suspenders) ----
-  installer.pods_project.build_configurations.each do |config|
-    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-    config.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
-    config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-
-    # Ensure -std=gnu++17 is present and inherited
-    cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
-    cppflags = cppflags.split if cppflags.is_a?(String)
-    cppflags = Array(cppflags)
-    cppflags << '$(inherited)' unless cppflags.include?('$(inherited)')
-    cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
-    config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
-
-    # Optional compat for older constructs
-    cflags = config.build_settings['OTHER_CFLAGS']
-    cflags = cflags.split if cflags.is_a?(String)
-    cflags = Array(cflags)
-    cflags << '$(inherited)' unless cflags.include?('$(inherited)')
-    cflags |= %w[
-      -D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR
-      -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
-    ]
-    config.build_settings['OTHER_CFLAGS'] = cflags
-  end
-
-  installer.pods_project.targets.each do |target|
-    # Keep Flutter's additional settings if available
-    begin
-      flutter_additional_ios_build_settings(target)
-    rescue
-    end
-
-    # ---- Target-level enforcement ----
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-      config.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
-      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-
-      cppflags = config.build_settings['OTHER_CPLUSPLUSFLAGS']
-      cppflags = cppflags.split if cppflags.is_a?(String)
-      cppflags = Array(cppflags)
-      cppflags << '$(inherited)' unless cppflags.include?('$(inherited)')
-      cppflags << '-std=gnu++17' unless cppflags.include?('-std=gnu++17')
-      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = cppflags
-
-      cflags = config.build_settings['OTHER_CFLAGS']
-      cflags = cflags.split if cflags.is_a?(String)
-      cflags = Array(cflags)
-      cflags << '$(inherited)' unless cflags.include?('$(inherited)')
-      cflags |= %w[
-        -D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR
-        -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
-      ]
-      config.build_settings['OTHER_CFLAGS'] = cflags
-    end
-
-    # ---- Strip unsupported '-G...' flags from any BoringSSL target ----
-    if target.name.include?('BoringSSL')
-      target.source_build_phase.files.each do |file|
-        s = file.settings
-        next unless s && s['COMPILER_FLAGS']
-        flags = s['COMPILER_FLAGS'].is_a?(String) ? s['COMPILER_FLAGS'].split : Array(s['COMPILER_FLAGS'])
-        flags.reject! { |f| f.start_with?('-G') }
-        s['COMPILER_FLAGS'] = flags.join(' ')
-      end
-      target.build_configurations.each do |config|
-        %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |key|
-          next unless config.build_settings[key]
-          flags = config.build_settings[key]
-          flags = flags.split if flags.is_a?(String)
-          flags = Array(flags).reject { |f| f.start_with?('-G') }
-          config.build_settings[key] = flags
-        end
-      end
-      puts ">> Patched flags for #{target.name}"
+  # Ensure deployment target & clean build settings
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |bc|
+      bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      bc.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
+      bc.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
     end
   end
+
+  # Keep Flutter’s defaults
+  begin
+    __apply_Xcode_12_5_M1_post_install(installer)
+  rescue
+  end
+
+  # If (and only if) you STILL hit the “non-modular header” error
+  # after updating pubspec packages, uncomment the next block:
+  #
+  # installer.pods_project.targets.each do |t|
+  #   t.build_configurations.each do |bc|
+  #     bc.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+  #   end
+  # end
 end
