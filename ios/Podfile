@@ -2,7 +2,7 @@
 
 platform :ios, '15.5'
 
-# ❌ Do NOT add: use_frameworks! or use_modular_headers! here
+# ❌ Do NOT add: use_frameworks! or use_modular_headers!
 
 # ---- Flutter helper wiring ----
 flutter_bin = ENV['FLUTTER_BIN'] || `which flutter`.strip
@@ -35,8 +35,7 @@ post_install do |installer|
       bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       bc.build_settings['GCC_C_LANGUAGE_STANDARD']     = 'gnu11'
       bc.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-      # If (and only if) you STILL see a header error after this change,
-      # uncomment the next line, rebuild once, then remove it:
+      # Uncomment only if a header error remains after this change:
       # bc.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
     end
   end
