@@ -54,7 +54,7 @@ post_install do |installer|
       config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
       config.build_settings['SWIFT_VERSION'] = '5.0'
 
-      # Rarely needed, but harmless and avoids edge crashes on device archives
+      # Avoid rare archive crashes on device with prebuilt pods
       config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'arm64e'
     end
   end
