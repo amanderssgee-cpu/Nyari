@@ -3,7 +3,7 @@ description: Nyari mobile app
 publish_to: "none"
 
 # bump this each TestFlight upload
-version: 1.0.0+30
+version: 1.0.0+40
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
