@@ -1,6 +1,7 @@
 import UIKit
 import Flutter
-import GoogleMaps    // <-- add this
+import FirebaseCore
+import GoogleMaps
 
 @UIApplicationMain
 class AppDelegate: FlutterAppDelegate {
@@ -9,11 +10,15 @@ class AppDelegate: FlutterAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
 
-    GMSServices.provideAPIKey("AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks")   // <-- use your iOS key here
-    // If you use Places on iOS too:
-    // GMSPlacesClient.provideAPIKey("YOUR_IOS_MAPS_KEY")
+    // Firebase (needed by firebase_core/auth/firestore/storage)
+    FirebaseApp.configure()
 
+    // Google Maps (required by google_maps_flutter on iOS)
+    GMSServices.provideAPIKey("YOUR_IOS_GOOGLE_MAPS_API_KEY_HERE")
+
+    // Register all generated plugins
     GeneratedPluginRegistrant.register(with: self)
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }
