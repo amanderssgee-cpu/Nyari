@@ -1,9 +1,9 @@
-name: first_flutter_app
+﻿name: first_flutter_app
 description: Nyari mobile app
 publish_to: "none"
 
 # bump this each TestFlight upload
-version: 1.0.0+53
+version: 1.0.0+57
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
