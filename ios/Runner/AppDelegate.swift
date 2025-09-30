@@ -14,7 +14,7 @@ class AppDelegate: FlutterAppDelegate {
     FirebaseApp.configure()
 
     // Google Maps (required by google_maps_flutter on iOS)
-    GMSServices.provideAPIKey("AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks")
+    GMSServices.provideAPIKey("AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks") // your iOS Maps key
 
     // Register all generated plugins
     GeneratedPluginRegistrant.register(with: self)
