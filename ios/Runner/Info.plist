@@ -2,66 +2,69 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
-	<key>CFBundleDisplayName</key>
-	<string>Nyari</string>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>Nyari</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
+  <!-- Basic bundle metadata -->
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>Nyari</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>Nyari</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
 
-	<!-- Launch screen storyboard only (no main storyboard for Flutter) -->
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+  <!-- Launch screen storyboard only (Flutter has no main storyboard) -->
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
 
-	<!-- Orientations -->
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
+  <!-- Supported orientations -->
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
 
-	<!-- Location (for map & nearby sorting) -->
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Nyari shows places near you and your location on the map.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Nyari uses your location to show nearby businesses and improve map accuracy.</string>
+  <!-- Privacy strings (critical to avoid launch crash) -->
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Nyari uses your location to show nearby places and your position on the map.</string>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>Nyari uses your location to show nearby places and your position on the map.</string>
 
-	<!-- Photos / Camera -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Nyari lets you choose photos to attach to business pages or reviews.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Nyari can save photos you add to reviews.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Nyari lets you take photos for business pages or reviews.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Nyari needs photo access so you can add pictures to business pages and reviews.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key>
+  <string>Nyari may save photos you create when adding reviews.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Nyari uses the camera so you can take photos for reviews.</string>
 
-	<!-- External links (e.g., Instagram deep links) -->
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>instagram</string>
-		<string>http</string>
-		<string>https</string>
-	</array>
+  <!-- Optional: if you prefer the Maps key in Info.plist instead of AppDelegate -->
+  <!-- <key>GMSApiKey</key>
+  <string>YOUR_IOS_MAPS_API_KEY</string> -->
+
+  <!-- External deep links (don’t include http/https here) -->
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>instagram</string>
+    <string>comgooglemaps</string>
+  </array>
 </dict>
 </plist>
