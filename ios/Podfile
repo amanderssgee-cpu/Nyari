@@ -1,71 +1,23 @@
-# ios/Podfile
-
 platform :ios, '15.5'
-
-source 'https://cdn.cocoapods.org/'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
-
-# --- Resolve FLUTTER_ROOT from Generated.xcconfig (CI-safe) ---
-def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. Run `flutter pub get` first."
-  end
-  File.foreach(generated_xcode_build_settings_path) do |line|
-    m = line.match(/FLUTTER_ROOT\=(.*)/)
-    return m[1].strip if m
-  end
-  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}"
+# ---- Flutter bootstrap (cross-platform) ----
+flutter_root = ENV['FLUTTER_ROOT']
+if flutter_root.nil? || flutter_root.empty?
+  raise 'FLUTTER_ROOT is not set. Run via "flutter" or set FLUTTER_ROOT in CI.'
 end
-
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+# -------------------------------------------
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # ✅ Stable with Firebase/MLKit/gRPC on Xcode 16
   use_frameworks! :linkage => :static
-
-  # Pull in all Flutter plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    # Apply Flutter’s extra settings to each pod target (correct usage)
     flutter_additional_ios_build_settings(target)
-
-    target.build_configurations.each do |config|
-      # --- Xcode 16 explicit-modules stability ---
-      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-      config.build_settings['DEFINES_MODULE'] = 'YES'
-      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-
-      # --- Toolchain consistency ---
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-      config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
-      config.build_settings['SWIFT_VERSION'] = '5.0'
-
-      # Avoid rare archive crashes on device with prebuilt pods
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'arm64e'
-    end
-  end
-
-  # Project-wide safety for prebuilt Swift modules
-  installer.pods_project.build_configurations.each do |config|
-    config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-  end
-
-  # Xcode 16 compatibility shim (present on newer Flutter channels)
-  if defined?(__apply_Xcode_16_compatibility_fix)
-    __apply_Xcode_16_compatibility_fix(installer)
   end
 end
