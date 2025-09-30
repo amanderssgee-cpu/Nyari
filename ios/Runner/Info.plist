@@ -24,7 +24,7 @@
   <key>LSRequiresIPhoneOS</key>
   <true/>
 
-  <!-- Launch screen storyboard only (Flutter has no main storyboard) -->
+  <!-- Launch screen (Flutter has no main storyboard) -->
   <key>UILaunchStoryboardName</key>
   <string>LaunchScreen</string>
 
@@ -43,7 +43,7 @@
     <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
 
-  <!-- Privacy strings (critical to avoid launch crash) -->
+  <!-- Privacy strings (critical) -->
   <key>NSLocationWhenInUseUsageDescription</key>
   <string>Nyari uses your location to show nearby places and your position on the map.</string>
   <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -56,11 +56,12 @@
   <key>NSCameraUsageDescription</key>
   <string>Nyari uses the camera so you can take photos for reviews.</string>
 
-  <!-- Optional: if you prefer the Maps key in Info.plist instead of AppDelegate -->
-  <!-- <key>GMSApiKey</key>
-  <string>YOUR_IOS_MAPS_API_KEY</string> -->
+  <!-- Optional: only if you prefer storing the Maps key here
+  <key>GMSApiKey</key>
+  <string>YOUR_IOS_MAPS_API_KEY</string>
+  -->
 
-  <!-- External deep links (don’t include http/https here) -->
+  <!-- External deep links (no http/https here) -->
   <key>LSApplicationQueriesSchemes</key>
   <array>
     <string>instagram</string>
