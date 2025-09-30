@@ -1,13 +1,11 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# ---- Flutter bootstrap (cross-platform) ----
 flutter_root = ENV['FLUTTER_ROOT']
 if flutter_root.nil? || flutter_root.empty?
   raise 'FLUTTER_ROOT is not set. Run via "flutter" or set FLUTTER_ROOT in CI.'
 end
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
-# -------------------------------------------
 
 flutter_ios_podfile_setup
 
