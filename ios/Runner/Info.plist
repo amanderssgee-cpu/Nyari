@@ -22,6 +22,12 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -35,22 +41,22 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
 
 	<!-- Location (for map & nearby sorting) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This allows Nyari to show places near you and your location on the map.</string>
+	<string>Nyari shows places near you and your location on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Nyari uses your location to show nearby businesses and improve map accuracy.</string>
 
-	<!-- Photos / Camera if you upload images -->
+	<!-- Photos / Camera -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We use your photo library when you upload images to a business page or a review.</string>
+	<string>Nyari lets you choose photos to attach to business pages or reviews.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Nyari can save photos you add to reviews.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>We use your camera when you take a photo for a business page or a review.</string>
+	<string>Nyari lets you take photos for business pages or reviews.</string>
 
-	<!-- If you open external links -->
+	<!-- External links (e.g., Instagram) -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>instagram</string>
