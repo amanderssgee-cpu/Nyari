@@ -1,14 +1,62 @@
+# Podfile for Flutter iOS (Xcode 15/16)
+
+platform :ios, '15.5'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+# Tell CocoaPods which workspace to integrate
+workspace 'Runner.xcworkspace'
+
+# Either use modular headers or frameworks. Start with modular headers:
+use_modular_headers!
+# If modular headers ever cause issues, comment the line above and, inside the
+# target 'Runner' block below, uncomment: `use_frameworks! :linkage => :static`
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on CI) ----
+def resolved_flutter_root
+  generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated)
+    raise "#{generated} must exist. Run 'flutter pub get' first."
+  end
+  File.foreach(generated) do |line|
+    if (m = line.match(/FLUTTER_ROOT\=(.*)/))
+      return m[1].strip
+    end
+  end
+  raise "FLUTTER_ROOT not found in #{generated}."
+end
+
+# Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
+
+# Flutter’s CocoaPods setup (required)
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  # If you switch away from modular headers, use frameworks instead:
+  # use_frameworks! :linkage => :static
+
+  # This is what actually pulls in Flutter + plugin pods
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+# ---- Post-install: scrub invalid flags in Pods + Runner, set sane build settings ----
 post_install do |installer|
   ios_target = '15.5'
 
-  # Remove unsupported -G / -G<number> flags from C/C++/Linker flags
+  # Remove unsupported -G / -G<number>
   scrub = proc do |val|
     return val if val.nil?
     tokens = val.is_a?(Array) ? val.compact.map(&:to_s) : val.to_s.split(' ')
     tokens.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
   end
 
-  # Helper to scrub a project's build settings (all configs + all targets)
+  # Helper to scrub one project
   scrub_project = proc do |project|
     project.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
@@ -34,13 +82,14 @@ post_install do |installer|
     end
   end
 
-  # 1) Scrub the Pods project
-  flutter_post_install(installer) if defined?(flutter_post_install)  # keep Flutter defaults
+  # Keep Flutter defaults
+  flutter_post_install(installer) if defined?(flutter_post_install)
+
+  # Scrub Pods project
   scrub_project.call(installer.pods_project)
 
-  # 2) Scrub ALL user projects (includes "Runner.xcodeproj")
-  user_projects = installer.aggregate_targets.map(&:user_project).uniq
-  user_projects.each do |proj|
+  # Scrub the Runner user project(s)
+  installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
     scrub_project.call(proj)
   end
 end
