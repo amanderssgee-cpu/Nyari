@@ -31,3 +31,9 @@ Thumbs.db
 .dart_tool/
 ios/Pods/
 ios/Podfile.lock
+
+ios/Flutter/Generated.xcconfig
+
+
+ios/Flutter/flutter_export_environment.sh
+
