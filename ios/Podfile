@@ -1,8 +1,5 @@
-platform :ios, '15.5'
+﻿platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-
-# ⛔️ REMOVE this if you added it earlier:
-# use_modular_headers!
 
 flutter_root = ENV['FLUTTER_ROOT']
 if flutter_root.nil? || flutter_root.empty?
@@ -13,7 +10,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # ✅ Use static frameworks to avoid gRPC modulemap issues
+  # ✅ static frameworks fix gRPC modulemap issue
   use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
