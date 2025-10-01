@@ -3,6 +3,9 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Generate module maps for all pods (lets Swift pods work with static linking)
+use_modular_headers!
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
@@ -23,14 +26,13 @@ def resolved_flutter_root
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-# IMPORTANT: do NOT define a variable named `flutter_root` or use ENV['FLUTTER_ROOT'].
+# IMPORTANT: do NOT use ENV['FLUTTER_ROOT']
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep static linking unless a pod explicitly requires frameworks.
-  # If a pod needs frameworks, uncomment:
+  # If modular headers gave you any issues, alternatively:
   # use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -64,7 +66,6 @@ post_install do |installer|
         v = config.build_settings[key]
         next if v.nil?
         cleaned = scrub.call(v)
-        # keep type stable (string vs array)
         config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
       end
     end
