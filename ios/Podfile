@@ -27,7 +27,10 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # use_frameworks! :linkage => :static   # keep commented unless a pod requires it
+  # Keep static linking unless a pod explicitly requires frameworks.
+  # If a pod needs frameworks, uncomment the next line:
+  # use_frameworks! :linkage => :static
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
@@ -35,7 +38,7 @@ end
 post_install do |installer|
   ios_target = '15.5'
 
-  # Remove any unsupported -G / -G<number> flags from C/C++/Linker flags
+  # Remove unsupported -G / -G<number> flags from C/C++/Linker flags
   scrub = proc do |val|
     return val if val.nil?
     tokens = val.is_a?(Array) ? val.compact.map(&:to_s) : val.to_s.split(' ')
