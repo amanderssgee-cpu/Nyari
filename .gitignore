@@ -3,14 +3,23 @@
 .packages
 .pub-cache/
 build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Platform build artifacts
 linux/flutter/ephemeral/
 windows/flutter/ephemeral/
 macos/Flutter/ephemeral/
-ios/Flutter/Flutter.podspec
-ios/Flutter/Generated.xcconfig
+
+# iOS
 ios/.symlinks/
 ios/Pods/
 ios/Podfile.lock
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Android
 android/.gradle/
 android/app/build/
 android/local.properties
@@ -26,14 +35,3 @@ Thumbs.db
 # Firebase config (optional to commit)
 # ios/Runner/GoogleService-Info.plist
 # android/app/google-services.json
-.flutter-plugins
-.flutter-plugins-dependencies
-.dart_tool/
-ios/Pods/
-ios/Podfile.lock
-
-ios/Flutter/Generated.xcconfig
-
-
-ios/Flutter/flutter_export_environment.sh
-
