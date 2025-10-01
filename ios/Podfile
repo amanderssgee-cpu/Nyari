@@ -1,63 +1,15 @@
-platform :ios, '15.5'
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-
-flutter_root = ENV['FLUTTER_ROOT']
-if flutter_root.nil? || flutter_root.empty?
-  raise 'FLUTTER_ROOT is not set. Run via "flutter" or set FLUTTER_ROOT in CI.'
-end
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
-
-flutter_ios_podfile_setup
-
-target 'Runner' do
-  # Use static frameworks (fixes the gRPC modulemap issue)
-  use_frameworks! :linkage => :static
-
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-end
-
 post_install do |installer|
-  ios_target = '15.5'
-
-  # Remove any unsupported -G / -G<number> flags from C/C++ flags
-  scrub = Proc.new { |val|
-    arr = Array(val).flatten.compact
-    # If it's a single string, split by spaces to inspect tokens
-    if arr.length == 1 && arr[0].is_a?(String)
-      arr = arr[0].split(' ')
-    end
-    arr.reject { |f| f.to_s == '-G' || f.to_s.match?(/\A-G\d+\z/) }.join(' ')
-  }
-
-  # ----- Pods project level -----
-  installer.pods_project.build_configurations.each do |config|
-    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-    config.build_settings['OTHER_CFLAGS'] = scrub.call(config.build_settings['OTHER_CFLAGS'])
-    config.build_settings['OTHER_CPLUSPLUSFLAGS'] = scrub.call(config.build_settings['OTHER_CPLUSPLUSFLAGS'])
-  end
-
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      config.build_settings['OTHER_CFLAGS'] = scrub.call(config.build_settings['OTHER_CFLAGS'])
-      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = scrub.call(config.build_settings['OTHER_CPLUSPLUSFLAGS'])
+      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
+        val = config.build_settings[key]
+        next if val.nil?
+        if val.is_a?(String)
+          config.build_settings[key] = val.split(" ").reject { |s| s == "-G" }.join(" ")
+        elsif val.is_a?(Array)
+          config.build_settings[key] = val.reject { |s| s == "-G" }
+        end
+      end
     end
-  end
-
-  # ----- User (Runner) project via aggregate targets -----
-  installer.aggregate_targets.each do |agg|
-    user_proj = agg.user_project
-    user_proj.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      config.build_settings['OTHER_CFLAGS'] = scrub.call(config.build_settings['OTHER_CFLAGS'])
-      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = scrub.call(config.build_settings['OTHER_CPLUSPLUSFLAGS'])
-    end
-    user_proj.save
-  end
-
-  # Keep Flutter’s additional settings for each pods target
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
   end
 end
-
