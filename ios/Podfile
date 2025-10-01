@@ -10,7 +10,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # No use_frameworks! unless a pod docs say you must
+  # No use_frameworks! unless a pod's docs explicitly require it
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
