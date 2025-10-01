@@ -10,13 +10,13 @@ class AppDelegate: FlutterAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
 
-    // Firebase (needed by firebase_core/auth/firestore/storage)
+    // Firebase
     FirebaseApp.configure()
 
-    // Google Maps (required by google_maps_flutter on iOS)
-    GMSServices.provideAPIKey("AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks") // your iOS Maps key
+    // Google Maps (iOS key)
+    GMSServices.provideAPIKey("AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks")
 
-    // Register all generated plugins
+    // Flutter plugins
     GeneratedPluginRegistrant.register(with: self)
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
