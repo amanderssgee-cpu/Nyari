@@ -1,6 +1,9 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# ✅ Generate module maps for static libs (fixes Firebase Swift pods with static linking)
+use_modular_headers!
+
 flutter_root = ENV['FLUTTER_ROOT']
 if flutter_root.nil? || flutter_root.empty?
   raise 'FLUTTER_ROOT is not set. Run via "flutter" or set FLUTTER_ROOT in CI.'
