@@ -1,15 +1,64 @@
+# Podfile for Flutter iOS (Xcode 15/16 compatible)
+# Targeting iOS 15.5 and scrubbing invalid flags like "-G".
+
+platform :ios, '15.5'
+
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+# ----- Resolve FLUTTER_ROOT from Generated.xcconfig -----
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running 'pod install' manually, run 'flutter pub get' first."
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  # NOTE: Avoid use_frameworks!/use_modular_headers unless a specific pod requires it.
+  # Flutter plugins are linked statically by default via flutter_install_all_ios_pods.
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+# ----- Post-install tweaks -----
 post_install do |installer|
-  installer.pods_project.targets.each do |t|
-    t.build_configurations.each do |config|
+  installer.pods_project.targets.each do |target|
+    # Flutter’s helper to keep build settings sane across pods
+    flutter_additional_ios_build_settings(target)
+
+    target.build_configurations.each do |config|
+      # Ensure deployment target consistency
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+
+      # Harden against bad flags injected by pods or misconfig
       %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
         val = config.build_settings[key]
         next if val.nil?
         if val.is_a?(String)
-          config.build_settings[key] = val.split(" ").reject { |s| s == "-G" }.join(" ")
+          config.build_settings[key] = val.split(' ').reject { |s| s == '-G' }.join(' ')
         elsif val.is_a?(Array)
-          config.build_settings[key] = val.reject { |s| s == "-G" }
+          config.build_settings[key] = val.reject { |s| s == '-G' }
         end
       end
+
+      # (Optional) Common Xcode 16 warnings/bitcode settings
+      # Bitcode was removed; make sure nothing tries to enable it:
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
     end
   end
 end
