@@ -28,7 +28,7 @@ flutter_ios_podfile_setup
 
 target 'Runner' do
   # Keep static linking unless a pod explicitly requires frameworks.
-  # If you KNOW you need frameworks, uncomment next line:
+  # If a pod needs frameworks, uncomment:
   # use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -56,13 +56,13 @@ post_install do |installer|
 
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      config.build_settings['ENABLE_BITCODE'] = 'NO' # bitcode is removed
+      config.build_settings['ENABLE_BITCODE'] = 'NO' # bitcode removed
 
       %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
         v = config.build_settings[key]
         next if v.nil?
         cleaned = scrub.call(v)
-        # Keep type stable (string vs array)
+        # keep type stable (string vs array)
         config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
       end
     end
