@@ -1,44 +1,3 @@
-# Podfile for Flutter iOS (Xcode 15/16)
-
-platform :ios, '15.5'
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-
-# Generate module maps for all pods (lets Swift pods work with static linking)
-use_modular_headers!
-
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
-
-# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on macOS CI) ----
-def resolved_flutter_root
-  generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated)
-    raise "#{generated} must exist. Run 'flutter pub get' first."
-  end
-  File.foreach(generated) do |line|
-    if (m = line.match(/FLUTTER_ROOT\=(.*)/))
-      return m[1].strip
-    end
-  end
-  raise "FLUTTER_ROOT not found in #{generated}."
-end
-
-# IMPORTANT: do NOT use ENV['FLUTTER_ROOT']
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
-
-flutter_ios_podfile_setup
-
-target 'Runner' do
-  # If modular headers gave you any issues, alternatively:
-  # use_frameworks! :linkage => :static
-
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-end
-
-# ---- Post-install: scrub invalid flags & set sane build settings ----
 post_install do |installer|
   ios_target = '15.5'
 
@@ -49,19 +8,10 @@ post_install do |installer|
     tokens.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
   end
 
-  # Ensure Pods project has consistent deployment target
-  installer.pods_project.build_configurations.each do |config|
-    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-  end
-
-  installer.pods_project.targets.each do |t|
-    # Flutter helper for consistent settings
-    flutter_additional_ios_build_settings(t)
-
-    t.build_configurations.each do |config|
+  # Helper to scrub a project's build settings (all configs + all targets)
+  scrub_project = proc do |project|
+    project.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      config.build_settings['ENABLE_BITCODE'] = 'NO' # bitcode removed
-
       %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
         v = config.build_settings[key]
         next if v.nil?
@@ -69,5 +19,28 @@ post_install do |installer|
         config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
       end
     end
+
+    project.targets.each do |t|
+      t.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+        %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
+          v = config.build_settings[key]
+          next if v.nil?
+          cleaned = scrub.call(v)
+          config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
+        end
+      end
+    end
+  end
+
+  # 1) Scrub the Pods project
+  flutter_post_install(installer) if defined?(flutter_post_install)  # keep Flutter defaults
+  scrub_project.call(installer.pods_project)
+
+  # 2) Scrub ALL user projects (includes "Runner.xcodeproj")
+  user_projects = installer.aggregate_targets.map(&:user_project).uniq
+  user_projects.each do |proj|
+    scrub_project.call(proj)
   end
 end
