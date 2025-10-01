@@ -1,8 +1,4 @@
 # Podfile for Flutter iOS (Xcode 15/16)
-# - Targets iOS 15.5
-# - Avoids use_frameworks!/modular_headers unless required
-# - Scrubs invalid '-G' flags that break iOS clang
-# - Disables bitcode
 
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -13,17 +9,17 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# ---- Resolve FLUTTER_ROOT from Generated.xcconfig ----
+# ---- Resolve FLUTTER_ROOT from Generated.xcconfig (works on macOS CI) ----
 def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. If you're running 'pod install' manually, run 'flutter pub get' first."
+  generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated)
+    raise "#{generated} must exist. Run 'flutter pub get' first."
   end
-  File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT\=(.*)/)
-    return matches[1].strip if matches
+  File.foreach(generated) do |line|
+    m = line.match(/FLUTTER_ROOT\=(.*)/)
+    return m[1].strip if m
   end
-  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
+  raise "FLUTTER_ROOT not found in #{generated}."
 end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
@@ -31,12 +27,14 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Do NOT enable use_frameworks! unless a specific pod requires it.
-  # Flutter plugins are linked statically by default.
+  # Keep static linking unless a pod explicitly requires frameworks.
+  # If you KNOW you need frameworks, uncomment next line:
+  # use_frameworks! :linkage => :static
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Post-install: keep settings sane & scrub invalid flags ----
+# ---- Post-install: scrub invalid flags & set sane build settings ----
 post_install do |installer|
   ios_target = '15.5'
 
@@ -47,28 +45,24 @@ post_install do |installer|
     tokens.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
   end
 
-  # Ensure the Pods project has consistent deployment target
+  # Ensure Pods project has consistent deployment target
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
   end
 
   installer.pods_project.targets.each do |t|
-    # Keep Flutter defaults across pods (provided by flutter_tools)
+    # Flutter helper for consistent settings
     flutter_additional_ios_build_settings(t)
 
     t.build_configurations.each do |config|
-      # iOS min target
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+      config.build_settings['ENABLE_BITCODE'] = 'NO' # bitcode is removed
 
-      # Bitcode removed in modern toolchains
-      config.build_settings['ENABLE_BITCODE'] = 'NO'
-
-      # Scrub bad flags that can break clang on iOS
       %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
         v = config.build_settings[key]
         next if v.nil?
         cleaned = scrub.call(v)
-        # Keep the type (string vs array) consistent with CocoaPods expectations
+        # Keep type stable (string vs array)
         config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
       end
     end
