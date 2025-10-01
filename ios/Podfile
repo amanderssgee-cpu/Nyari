@@ -9,26 +9,28 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# ---- Resolve FLUTTER_ROOT from Generated.xcconfig (safe on macOS CI) ----
-def flutter_root
+# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on macOS CI) ----
+def resolved_flutter_root
   generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated)
     raise "#{generated} must exist. Run 'flutter pub get' first."
   end
   File.foreach(generated) do |line|
-    m = line.match(/FLUTTER_ROOT\=(.*)/)
-    return m[1].strip if m
+    if (m = line.match(/FLUTTER_ROOT\=(.*)/))
+      return m[1].strip
+    end
   end
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+# IMPORTANT: do NOT define any variable named `flutter_root` anywhere.
+# Always use the method above to compute the path.
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep static linking unless a pod explicitly requires frameworks.
-  # If a pod needs frameworks, uncomment:
+  # If a specific pod requires frameworks, uncomment the next line:
   # use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
