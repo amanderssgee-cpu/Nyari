@@ -67,9 +67,5 @@
     <string>instagram</string>
     <string>comgooglemaps</string>
   </array>
-
-  <!-- Google Maps iOS key -->
-  <key>GMSApiKey</key>
-  <string>AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks</string>
 </dict>
 </plist>
