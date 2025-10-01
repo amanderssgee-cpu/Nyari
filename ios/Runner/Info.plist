@@ -24,11 +24,9 @@
   <key>LSRequiresIPhoneOS</key>
   <true/>
 
-  <!-- Launch + main storyboards -->
+  <!-- Launch storyboard (Flutter does NOT use a main storyboard) -->
   <key>UILaunchStoryboardName</key>
   <string>LaunchScreen</string>
-  <key>UIMainStoryboardFile</key>
-  <string>Main</string>
 
   <!-- Supported orientations -->
   <key>UISupportedInterfaceOrientations</key>
@@ -45,24 +43,23 @@
     <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
 
-  <!-- ✅ Privacy usage strings -->
+  <!-- Privacy (TCC) usage strings -->
   <key>NSLocationWhenInUseUsageDescription</key>
-  <string>Allow Nyari to use your location to show nearby places.</string>
-
-  <!-- Added: satisfies Apple scanner when any SDK references background/always capability -->
+  <string>Nyari shows places near you and needs your location while you use the app.</string>
+  <!-- Keep this only if there's any chance you'll request "Always" later -->
   <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
   <string>Nyari uses your location to keep nearby results accurate.</string>
 
-  <key>NSPhotoLibraryUsageDescription</key>
-  <string>Allow Nyari to access your photos to attach to reviews.</string>
-  <key>NSPhotoLibraryAddUsageDescription</key>
-  <string>Allow Nyari to save photos when needed.</string>
   <key>NSCameraUsageDescription</key>
-  <string>Allow Nyari to use the camera to take photos for reviews.</string>
+  <string>Nyari lets you take photos to attach to reviews.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Nyari needs access to your photos so you can attach them to reviews.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key>
+  <string>Nyari may save photos you create to your library.</string>
 
-  <!-- Keep this ONLY if you actually capture video/audio in-app -->
+  <!-- Remove if you don't record audio/video in-app -->
   <key>NSMicrophoneUsageDescription</key>
-  <string>Allow Nyari to use the microphone for video reviews.</string>
+  <string>Nyari uses the microphone when recording videos for reviews.</string>
 
   <!-- URL schemes you might query -->
   <key>LSApplicationQueriesSchemes</key>
@@ -70,5 +67,9 @@
     <string>instagram</string>
     <string>comgooglemaps</string>
   </array>
+
+  <!-- Google Maps iOS key -->
+  <key>GMSApiKey</key>
+  <string>AIzaSyBk5TUsxlsYpfzM16ljacudFH4NNx76Sks</string>
 </dict>
 </plist>
