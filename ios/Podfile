@@ -1,4 +1,4 @@
-﻿platform :ios, '15.5'
+platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 flutter_root = ENV['FLUTTER_ROOT']
@@ -10,7 +10,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # ✅ static frameworks fix gRPC modulemap issue
+  # Static frameworks fix the gRPC modulemap issue seen during archive
   use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
