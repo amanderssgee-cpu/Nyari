@@ -1,0 +1,23 @@
+platform :ios, '15.5'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+flutter_root = ENV['FLUTTER_ROOT']
+if flutter_root.nil? || flutter_root.empty?
+  raise 'FLUTTER_ROOT is not set. Run via "flutter" or set FLUTTER_ROOT in CI.'
+end
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  # Static frameworks fix the gRPC modulemap issue seen during archive
+  use_frameworks! :linkage => :static
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
+end
