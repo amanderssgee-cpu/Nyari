@@ -23,14 +23,14 @@ def resolved_flutter_root
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-# IMPORTANT: do NOT define any variable named `flutter_root` anywhere.
-# Always use the method above to compute the path.
+# IMPORTANT: do NOT define a variable named `flutter_root` or use ENV['FLUTTER_ROOT'].
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # If a specific pod requires frameworks, uncomment the next line:
+  # Keep static linking unless a pod explicitly requires frameworks.
+  # If a pod needs frameworks, uncomment:
   # use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
