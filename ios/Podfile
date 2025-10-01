@@ -10,13 +10,37 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Static frameworks fix the gRPC modulemap issue seen during archive
+  # Use static frameworks (works with Flutter + fixes the earlier modulemap issue)
   use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
+  # Force all pods to the same iOS version and strip unsupported flags like -G / -G0
+  ios_target = '15.5'
+
+  # Helper to normalize flags (remove -G / -G<number>)
+  scrub = Proc.new { |arr|
+    a = Array(arr).flatten.compact
+    a.reject { |f| f.to_s == '-G' || f.to_s.match?(/\A-G\d+\z/) }
+  }
+
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+  end
+
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+
+      # Clean C/C++ flags
+      config.build_settings['OTHER_CFLAGS'] = scrub.call(config.build_settings['OTHER_CFLAGS'])
+      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = scrub.call(config.build_settings['OTHER_CPLUSPLUSFLAGS'])
+    end
+  end
+
+  # Keep Flutter’s extra settings
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
