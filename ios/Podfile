@@ -1,4 +1,4 @@
-﻿platform :ios, '15.5'
+platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 flutter_root = ENV['FLUTTER_ROOT']
@@ -19,15 +19,21 @@ end
 post_install do |installer|
   ios_target = '15.5'
 
-  # scrub any unsupported -G flags that break iOS arm64
-  scrub = Proc.new { |arr|
-    a = Array(arr).flatten.compact
-    a.reject { |f| f.to_s == '-G' || f.to_s.match?(/\A-G\d+\z/) }
+  # Remove any unsupported -G / -G<number> flags from C/C++ flags
+  scrub = Proc.new { |val|
+    arr = Array(val).flatten.compact
+    # If it's a single string, split by spaces to inspect tokens
+    if arr.length == 1 && arr[0].is_a?(String)
+      arr = arr[0].split(' ')
+    end
+    arr.reject { |f| f.to_s == '-G' || f.to_s.match?(/\A-G\d+\z/) }.join(' ')
   }
 
-  # force pods to iOS 15.5
+  # ----- Pods project level -----
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+    config.build_settings['OTHER_CFLAGS'] = scrub.call(config.build_settings['OTHER_CFLAGS'])
+    config.build_settings['OTHER_CPLUSPLUSFLAGS'] = scrub.call(config.build_settings['OTHER_CPLUSPLUSFLAGS'])
   end
 
   installer.pods_project.targets.each do |t|
@@ -38,6 +44,18 @@ post_install do |installer|
     end
   end
 
+  # ----- User (Runner) project via aggregate targets -----
+  installer.aggregate_targets.each do |agg|
+    user_proj = agg.user_project
+    user_proj.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+      config.build_settings['OTHER_CFLAGS'] = scrub.call(config.build_settings['OTHER_CFLAGS'])
+      config.build_settings['OTHER_CPLUSPLUSFLAGS'] = scrub.call(config.build_settings['OTHER_CPLUSPLUSFLAGS'])
+    end
+    user_proj.save
+  end
+
+  # Keep Flutter’s additional settings for each pods target
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
