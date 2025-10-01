@@ -9,7 +9,7 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# ---- Resolve FLUTTER_ROOT from Generated.xcconfig (works on macOS CI) ----
+# ---- Resolve FLUTTER_ROOT from Generated.xcconfig (safe on macOS CI) ----
 def flutter_root
   generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated)
@@ -28,7 +28,7 @@ flutter_ios_podfile_setup
 
 target 'Runner' do
   # Keep static linking unless a pod explicitly requires frameworks.
-  # If a pod needs frameworks, uncomment the next line:
+  # If a pod needs frameworks, uncomment:
   # use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
