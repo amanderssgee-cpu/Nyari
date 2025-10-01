@@ -1,8 +1,10 @@
-# Podfile for Flutter iOS (Xcode 15/16 compatible)
-# Targeting iOS 15.5 and scrubbing invalid flags like "-G".
+# Podfile for Flutter iOS (Xcode 15/16)
+# - Targets iOS 15.5
+# - Avoids use_frameworks!/modular_headers unless required
+# - Scrubs invalid '-G' flags that break iOS clang
+# - Disables bitcode
 
 platform :ios, '15.5'
-
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -11,7 +13,7 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# ----- Resolve FLUTTER_ROOT from Generated.xcconfig -----
+# ---- Resolve FLUTTER_ROOT from Generated.xcconfig ----
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
@@ -29,36 +31,46 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # NOTE: Avoid use_frameworks!/use_modular_headers unless a specific pod requires it.
-  # Flutter plugins are linked statically by default via flutter_install_all_ios_pods.
-
+  # Do NOT enable use_frameworks! unless a specific pod requires it.
+  # Flutter plugins are linked statically by default.
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ----- Post-install tweaks -----
+# ---- Post-install: keep settings sane & scrub invalid flags ----
 post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    # Flutter’s helper to keep build settings sane across pods
-    flutter_additional_ios_build_settings(target)
+  ios_target = '15.5'
 
-    target.build_configurations.each do |config|
-      # Ensure deployment target consistency
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+  # Remove any unsupported -G / -G<number> flags from C/C++/Linker flags
+  scrub = proc do |val|
+    return val if val.nil?
+    tokens = val.is_a?(Array) ? val.compact.map(&:to_s) : val.to_s.split(' ')
+    tokens.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
+  end
 
-      # Harden against bad flags injected by pods or misconfig
-      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
-        val = config.build_settings[key]
-        next if val.nil?
-        if val.is_a?(String)
-          config.build_settings[key] = val.split(' ').reject { |s| s == '-G' }.join(' ')
-        elsif val.is_a?(Array)
-          config.build_settings[key] = val.reject { |s| s == '-G' }
-        end
-      end
+  # Ensure the Pods project has consistent deployment target
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+  end
 
-      # (Optional) Common Xcode 16 warnings/bitcode settings
-      # Bitcode was removed; make sure nothing tries to enable it:
+  installer.pods_project.targets.each do |t|
+    # Keep Flutter defaults across pods (provided by flutter_tools)
+    flutter_additional_ios_build_settings(t)
+
+    t.build_configurations.each do |config|
+      # iOS min target
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+
+      # Bitcode removed in modern toolchains
       config.build_settings['ENABLE_BITCODE'] = 'NO'
+
+      # Scrub bad flags that can break clang on iOS
+      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
+        v = config.build_settings[key]
+        next if v.nil?
+        cleaned = scrub.call(v)
+        # Keep the type (string vs array) consistent with CocoaPods expectations
+        config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
+      end
     end
   end
 end
