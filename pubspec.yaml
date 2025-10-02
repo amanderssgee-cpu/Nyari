@@ -2,7 +2,7 @@
 description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: 'none' # not publishing to pub.dev
 
-version: 1.0.0+80
+version: 1.0.0+82
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
