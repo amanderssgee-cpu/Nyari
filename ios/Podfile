@@ -5,12 +5,12 @@ ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
-  'Debug' => :debug,
+  'Debug'   => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
-# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on CI)
+# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on CI) ----
 def resolved_flutter_root
   generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated)
@@ -35,65 +35,49 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ========== GLOBAL SCRUB ==========
-# Remove any appearance of -G or the two-token form "-G 0" etc
-def strip_g_tokens(arr)
-  a = Array(arr).flatten.compact.map(&:to_s)
-  cleaned = []
-  skip_next = false
-  a.each_with_index do |tok, i|
-    if skip_next
-      skip_next = false
-      next
-    end
-    if tok == '-G'
-      # drop this and a following numeric if present
-      nxt = a[i+1]
-      skip_next = (!!nxt && nxt.match?(/\A\d+\z/))
-      next
-    elsif tok.match?(/\A-G\d+\z/)
-      # single-token form (-G1, -G0, etc)
-      next
-    else
-      cleaned << tok
-    end
-  end
-  cleaned
-end
-
-# Keys where -G sometimes hides
+# ==================== GLOBAL '-G' NEUTRALIZATION ====================
 ALL_FLAG_KEYS = %w[
   OTHER_CFLAGS
   OTHER_CPLUSPLUSFLAGS
   OTHER_LDFLAGS
-  USER_HEADER_SEARCH_PATHS
-  HEADER_SEARCH_PATHS
+  OTHER_LIBTOOLFLAGS
   WARNING_CFLAGS
   GCC_PREPROCESSOR_DEFINITIONS
-  OTHER_LIBTOOLFLAGS
+  USER_HEADER_SEARCH_PATHS
+  HEADER_SEARCH_PATHS
   LIBRARY_SEARCH_PATHS
-  SWIFT_ACTIVE_COMPILATION_CONDITIONS
-  OTHER_SWIFT_FLAGS
   LD_RUNPATH_SEARCH_PATHS
+  OTHER_SWIFT_FLAGS
+  SWIFT_ACTIVE_COMPILATION_CONDITIONS
 ]
+
+def contains_g_tokens?(val)
+  arr = Array(val).flatten.compact.map(&:to_s)
+  arr.any? { |t| t == '-G' || t.match?(/\A-G\d+\z/) } ||
+    arr.each_cons(2).any? { |a,b| a == '-G' && b.match?(/\A\d+\z/) }
+end
 
 post_install do |installer|
   ios_target = '15.5'
 
-  # Keep Flutter defaults
+  # Keep Flutter defaults (e.g., bitcode off, etc.)
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  # Scrub Pods project first
-  [installer.pods_project, *installer.aggregate_targets.map(&:user_project).uniq].each do |project|
+  projects = [installer.pods_project, *installer.aggregate_targets.map(&:user_project).uniq]
+
+  projects.each do |project|
+    # Project-level configurations
     project.build_configurations.each do |cfg|
       cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
       ALL_FLAG_KEYS.each do |k|
         v = cfg.build_settings[k]
         next if v.nil?
-        cfg.build_settings[k] = strip_g_tokens(v)
+        # HARD OVERRIDE: if any -G is present, zero the array; otherwise, keep as-is
+        cfg.build_settings[k] = contains_g_tokens?(v) ? [] : v
       end
     end
 
+    # Target-level configurations
     project.targets.each do |t|
       t.build_configurations.each do |cfg|
         cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
@@ -101,20 +85,17 @@ post_install do |installer|
         ALL_FLAG_KEYS.each do |k|
           v = cfg.build_settings[k]
           next if v.nil?
-          cfg.build_settings[k] = strip_g_tokens(v)
+          cfg.build_settings[k] = contains_g_tokens?(v) ? [] : v
         end
       end
     end
   end
 
-  # Extra hardening: purge -G from all Pods-generated xcconfigs on disk
+  # Extra safety: purge -G from all generated xcconfigs on disk
   Dir.glob(File.join(installer.sandbox.root, 'Target Support Files', '**', '*.xcconfig')).each do |path|
     txt = File.read(path)
-    # remove '-G' followed by optional space + digits, and collapse double spaces
-    txt = txt.gsub(/(^|[\s])\-G(\s+\d+)?(?=[\s]|$)/, ' ')
-             .gsub(/  +/, ' ')
-             .gsub(/\s+\n/, "\n")
+    txt = txt.gsub(/(^|[\s])\-G(\s+\d+)?(?=[\s]|$)/, ' ').gsub(/  +/, ' ')
     File.write(path, txt)
   end
 end
-# ========== /GLOBAL SCRUB ==========
+# ==================== /GLOBAL '-G' NEUTRALIZATION ====================
