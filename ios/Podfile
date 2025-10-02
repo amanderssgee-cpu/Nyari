@@ -1,9 +1,7 @@
 # Podfile for Flutter iOS (Xcode 15/16)
-
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# Ensure CocoaPods integrates with the right workspace
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
@@ -12,7 +10,7 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (CI-safe) ----
+# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on CI) ----
 def resolved_flutter_root
   generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated)
@@ -29,99 +27,84 @@ end
 # Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
-# Flutter’s CocoaPods setup (required)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Frameworks resolve some plugin header issues (e.g. Flutter/Flutter.h not found)
+  # Use frameworks to avoid static header/module weirdness in some plugins
   use_frameworks! :linkage => :static
 
-  # Pull in Flutter + all plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Post-install: scrub any '-G' flags across ALL settings + rewrite .xcconfig files ----
+# ---- Post-install: scrub *any* -G* tokens from *all* settings & levels ----
 post_install do |installer|
   ios_target = '15.5'
 
-  def contains_g?(val)
-    arr = val.is_a?(Array) ? val.flatten.compact.map(&:to_s) : val.to_s.split(' ')
-    arr.any? { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
-  end
-
+  # returns normalized array of tokens, minus any -G or -G<number> tokens
   def scrub_tokens(val)
     return [] if val.nil?
-    case val
-    when Array
-      val.flatten.compact.map(&:to_s).reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
-    else
-      val.to_s.split(' ').reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
-    end
+    ary =
+      case val
+      when Array then val.flatten.compact.map(&:to_s)
+      else             val.to_s.split(' ')
+      end
+    ary.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
   end
 
-  def scrub_config_build_settings!(config)
-    config.build_settings.keys.each do |key|
-      v = config.build_settings[key]
-      next if v.nil?
-      if contains_g?(v)
-        before = v
-        config.build_settings[key] = scrub_tokens(v)
-        puts "[GFLAG scrubbed] #{config.name} #{key} :: #{before.inspect} -> #{config.build_settings[key].inspect}"
+  # mutate a single settings hash in place
+  def scrub_settings_hash!(settings)
+    settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+    settings['ENABLE_BITCODE'] = 'NO'
+    # scrub all keys that are string/array-like and may hold flags
+    settings.keys.each do |k|
+      v = settings[k]
+      case v
+      when Array
+        settings[k] = scrub_tokens(v)
+      when String
+        # Only touch if it actually contains a -G-like token to avoid clobbering paths
+        if v.include?(' -G') || v.start_with?('-G') || v.match?(/\s-G\d+\b/)
+          settings[k] = scrub_tokens(v).join(' ')
+        end
       end
     end
-    # sane defaults
-    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-    config.build_settings['ENABLE_BITCODE'] = 'NO'
   end
 
-  def scrub_project!(project)
-    project.build_configurations.each { |cfg| scrub_config_build_settings!(cfg) }
-    project.targets.each { |t| t.build_configurations.each { |cfg| scrub_config_build_settings!(cfg) } }
+  # diagnostics helper
+  def log_any_g_flags(project, label)
+    project.targets.each do |t|
+      t.build_configurations.each do |cfg|
+        cfg.build_settings.each do |k, v|
+          next unless v.is_a?(String) || v.is_a?(Array)
+          arr = v.is_a?(Array) ? v : v.to_s.split(' ')
+          if arr.any? { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
+            puts "[GFLAG] #{label} :: #{t.name} #{cfg.name} #{k} => #{arr.inspect}"
+          end
+        end
+      end
+    end
   end
 
-  # 1) Keep Flutter defaults then scrub Xcode projects
+  # Keep Flutter defaults first (e.g., Swift version, exclusions …)
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  puts "=== GFLAG DIAG: BEFORE (projects) ==="
-  [installer.pods_project, *installer.aggregate_targets.map(&:user_project).uniq].each do |proj|
-    proj.targets.each do |t|
-      t.build_configurations.each do |cfg|
-        cfg.build_settings.each do |k, v|
-          puts "[GFLAG BEFORE] #{proj.path} :: #{t.name} #{cfg.name} #{k} => #{Array(v).inspect}" if v && contains_g?(v)
-        end
-      end
-    end
+  # --- BEFORE scrubbing (to see where it was)
+  log_any_g_flags(installer.pods_project, 'PODS (BEFORE)')
+  installer.aggregate_targets.map(&:user_project).uniq.each { |p| log_any_g_flags(p, 'RUNNER (BEFORE)') }
+
+  # Scrub the Pods project (project-level + all targets/configs)
+  installer.pods_project.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) }
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) }
   end
 
-  # 2) Scrub projects (Pods + Runner)
-  scrub_project!(installer.pods_project)
-  installer.aggregate_targets.map(&:user_project).uniq.each { |proj| scrub_project!(proj) }
-
-  puts "=== GFLAG DIAG: AFTER (projects) ==="
-  [installer.pods_project, *installer.aggregate_targets.map(&:user_project).uniq].each do |proj|
-    proj.targets.each do |t|
-      t.build_configurations.each do |cfg|
-        cfg.build_settings.each do |k, v|
-          puts "[GFLAG AFTER] #{proj.path} :: #{t.name} #{cfg.name} #{k} => #{Array(v).inspect}" if v && contains_g?(v)
-        end
-      end
-    end
+  # Scrub each user project (Runner, plugin user projects if any)
+  installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
+    proj.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) }
+    proj.targets.each { |t| t.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) } }
   end
 
-  # 3) Scrub any .xcconfig files that may inject flags
-  def scrub_xcconfig_file!(path)
-    return unless File.exist?(path)
-    text = File.read(path)
-    before = text.dup
-    # Remove standalone -G or -G<number> tokens in any value lines
-    text.gsub!(/(?<=\s)-G\d*(?=\s|$)|\A-G\d*(?=\s|$)/, '')
-    if before != text
-      File.open(path, 'w') { |f| f.write(text) }
-      puts "[GFLAG scrubbed xcconfig] #{path}"
-    end
-  end
-
-  pods_xcconfigs   = Dir.glob('Pods/Target Support Files/**/*.xcconfig')
-  runner_xcconfigs = Dir.glob(File.join(__dir__, '*.xcconfig')) + Dir.glob(File.join(__dir__, 'Flutter', '*.xcconfig'))
-  (pods_xcconfigs + runner_xcconfigs).uniq.each { |p| scrub_xcconfig_file!(p) }
+  # --- AFTER scrubbing (should print nothing)
+  log_any_g_flags(installer.pods_project, 'PODS (AFTER)')
+  installer.aggregate_targets.map(&:user_project).uniq.each { |p| log_any_g_flags(p, 'RUNNER (AFTER)') }
 end
