@@ -3,13 +3,8 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# Tell CocoaPods which workspace to integrate
+# Make CocoaPods target the correct workspace
 workspace 'Runner.xcworkspace'
-
-# Either use modular headers or frameworks. Start with modular headers:
-use_modular_headers!
-# If modular headers ever cause issues, comment the line above and, inside the
-# target 'Runner' block below, uncomment: `use_frameworks! :linkage => :static`
 
 project 'Runner', {
   'Debug' => :debug,
@@ -31,17 +26,17 @@ def resolved_flutter_root
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-# Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
+# Load Flutter podhelper (DO NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
 # Flutter’s CocoaPods setup (required)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # If you switch away from modular headers, use frameworks instead:
-  # use_frameworks! :linkage => :static
+  # Frameworks fix 'Flutter/Flutter.h' not found for some plugins
+  use_frameworks! :linkage => :static
 
-  # This is what actually pulls in Flutter + plugin pods
+  # Pull in Flutter + all plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
