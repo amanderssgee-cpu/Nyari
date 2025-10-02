@@ -5,117 +5,93 @@ ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
-  'Debug' => :debug,
+  'Debug'   => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
-# ---- Resolve FLUTTER_ROOT from ios/Flutter/Generated.xcconfig (safe on CI) ----
+# ---- Resolve Flutter root from Generated.xcconfig (safe on CI)
 def resolved_flutter_root
   generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated)
     raise "#{generated} must exist. Run 'flutter pub get' first."
   end
+  flutter_root = nil
   File.foreach(generated) do |line|
     if (m = line.match(/FLUTTER_ROOT\=(.*)/))
-      return m[1].strip
+      flutter_root = m[1].strip
+      break
     end
   end
-  raise "FLUTTER_ROOT not found in #{generated}."
+  raise "FLUTTER_ROOT not found in #{generated}" if flutter_root.nil?
+  flutter_root
 end
 
-# Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
+flutter_root = resolved_flutter_root
 
-# Flutter CocoaPods setup
+# ---- Flutter pods
+load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Frameworks are safest for mixed Swift/ObjC plugins
   use_frameworks! :linkage => :static
+  use_modular_headers!
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # (your other pods, if any)
 end
 
-# ====== GLOBAL SCRUB (remove every possible form of "-G") ======
-ALL_FLAG_KEYS = %w[
-  OTHER_CFLAGS
-  OTHER_CPLUSPLUSFLAGS
-  OTHER_LDFLAGS
-  OTHER_LIBTOOLFLAGS
-  WARNING_CFLAGS
-  GCC_PREPROCESSOR_DEFINITIONS
-  USER_HEADER_SEARCH_PATHS
-  HEADER_SEARCH_PATHS
-  LIBRARY_SEARCH_PATHS
-  LD_RUNPATH_SEARCH_PATHS
-  OTHER_SWIFT_FLAGS
-  SWIFT_ACTIVE_COMPILATION_CONDITIONS
-].freeze
-
-def strip_g_tokens(val)
-  arr = Array(val).flatten.compact.map(&:to_s)
-  out = []
-  skip_next = false
-  arr.each_with_index do |tok, i|
-    if skip_next
-      skip_next = false
-      next
-    end
-    if tok == '-G'
-      # two-token form: "-G 0"/"-G 1" etc => drop this and the next numeric
-      nxt = arr[i+1]
-      skip_next = (nxt && nxt.match?(/\A\d+\z/))
-      next
-    elsif tok.match?(/\A-G\d+\z/)
-      # single-token form "-G0"/"-G1"
-      next
-    else
-      out << tok
-    end
-  end
-  out
-end
-
-def scrub_build_settings!(cfg)
-  ALL_FLAG_KEYS.each do |k|
-    v = cfg.build_settings[k]
-    next if v.nil?
-    cfg.build_settings[k] = strip_g_tokens(v)
-  end
-end
-
+# ---- Nuke any -G flags everywhere CocoaPods touches
 post_install do |installer|
-  ios_target = '15.5'
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |config|
+      %w[
+        OTHER_CFLAGS
+        OTHER_CPLUSPLUSFLAGS
+        OTHER_LDFLAGS
+        OTHER_LIBTOOLFLAGS
+        CFLAGS
+        CXXFLAGS
+        LDFLAGS
+      ].each do |k|
+        v = config.build_settings[k]
+        next if v.nil?
+        v = v.join(' ') if v.is_a?(Array)
+        # remove -G, -G<digits>, or "-G <digits>"
+        v = v.gsub(/\s-G(\s*\d+)?(?=\s|$)/, ' ')
+             .gsub(/\s-G\d+(?=\s|$)/, ' ')
+        config.build_settings[k] = v
+      end
 
-  # Keep Flutter defaults
-  flutter_post_install(installer) if defined?(flutter_post_install)
-
-  projects = [installer.pods_project] + installer.aggregate_targets.map(&:user_project).uniq
-
-  projects.each do |project|
-    project.build_configurations.each do |cfg|
-      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      scrub_build_settings!(cfg)
-    end
-
-    project.targets.each do |t|
-      t.build_configurations.each do |cfg|
-        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-        cfg.build_settings['ENABLE_BITCODE'] = 'NO'
-        scrub_build_settings!(cfg)
+      # Also ensure these are defined even if missing, so nothing inherited adds -G
+      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS OTHER_LIBTOOLFLAGS].each do |k|
+        config.build_settings[k] ||= '$(inherited)'
       end
     end
   end
 
-  # Extra: scrub every Pods Target Support *.xcconfig on disk
-  Dir.glob(File.join(installer.sandbox.root, 'Target Support Files', '**', '*.xcconfig')).each do |path|
-    txt = File.read(path)
-    # remove "-G", "-G 0", "-G 1", "-G0"… and collapse extra spaces
-    txt = txt.gsub(/(^|[\s])\-G(\s+\d+)?(?=[\s]|$)/, ' ')
-             .gsub(/(^|[\s])\-G\d+(?=[\s]|$)/, ' ')
-             .gsub(/  +/, ' ')
-             .gsub(/\s+\n/, "\n")
-    File.write(path, txt)
+  # Also scrub the app target settings
+  installer.aggregate_targets.each do |agg|
+    agg.user_project.native_targets.each do |nt|
+      nt.build_configurations.each do |config|
+        %w[
+          OTHER_CFLAGS
+          OTHER_CPLUSPLUSFLAGS
+          OTHER_LDFLAGS
+          OTHER_LIBTOOLFLAGS
+          CFLAGS
+          CXXFLAGS
+          LDFLAGS
+        ].each do |k|
+          v = config.build_settings[k]
+          next if v.nil?
+          v = v.join(' ') if v.is_a?(Array)
+          v = v.gsub(/\s-G(\s*\d+)?(?=\s|$)/, ' ')
+               .gsub(/\s-G\d+(?=\s|$)/, ' ')
+          config.build_settings[k] = v
+        end
+      end
+    end
   end
 end
-# ====== /GLOBAL SCRUB ======
