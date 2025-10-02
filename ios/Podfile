@@ -1,11 +1,12 @@
-# Podfile for Flutter iOS (Xcode 15/16)
+# Podfile for Flutter iOS — global '-G' scrub + modern defaults
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Make CocoaPods target the correct workspace
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
-  'Debug' => :debug,
+  'Debug'   => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
@@ -27,84 +28,66 @@ end
 # Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
+# Flutter CocoaPods setup
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Use frameworks to avoid static header/module weirdness in some plugins
+  # Frameworks are the most compatible path for mixed Swift/Obj-C pods.
   use_frameworks! :linkage => :static
 
+  # Pull in Flutter + all plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Post-install: scrub *any* -G* tokens from *all* settings & levels ----
+# ---- Post-install: GLOBAL '-G' scrub across ALL build settings keys ----
 post_install do |installer|
   ios_target = '15.5'
 
-  # returns normalized array of tokens, minus any -G or -G<number> tokens
-  def scrub_tokens(val)
-    return [] if val.nil?
-    ary =
+  # Remove any '-G' or '-G<number>' tokens from a string/array value
+  scrub_tokens = proc do |val|
+    return val if val.nil?
+    tokens =
       case val
       when Array then val.flatten.compact.map(&:to_s)
-      else             val.to_s.split(' ')
+      else             val.to_s.split(/\s+/)
       end
-    ary.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
+    cleaned = tokens.reject { |t| t == '-G' || t =~ /\A-G\d+\z/ }
+    # keep the original type shape CocoaPods likes
+    val.is_a?(Array) ? cleaned : cleaned.join(' ')
   end
 
-  # mutate a single settings hash in place
-  def scrub_settings_hash!(settings)
-    settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-    settings['ENABLE_BITCODE'] = 'NO'
-    # scrub all keys that are string/array-like and may hold flags
-    settings.keys.each do |k|
-      v = settings[k]
-      case v
-      when Array
-        settings[k] = scrub_tokens(v)
-      when String
-        # Only touch if it actually contains a -G-like token to avoid clobbering paths
-        if v.include?(' -G') || v.start_with?('-G') || v.match?(/\s-G\d+\b/)
-          settings[k] = scrub_tokens(v).join(' ')
-        end
-      end
+  # Scrub ALL keys in a build settings hash (including sdk-scoped, e.g. OTHER_CFLAGS[sdk=iphoneos*])
+  scrub_build_settings_hash = proc do |bs|
+    bs.keys.each do |k|
+      v = bs[k]
+      next unless v.is_a?(String) || v.is_a?(Array)
+      # fast path: skip if no -G present
+      next unless v.to_s.include?('-G')
+      bs[k] = scrub_tokens.call(v)
     end
   end
 
-  # diagnostics helper
-  def log_any_g_flags(project, label)
-    project.targets.each do |t|
+  # Apply to Pods project + every user project (Runner)
+  projects = [installer.pods_project] + installer.aggregate_targets.map(&:user_project).uniq
+
+  projects.each do |proj|
+    # Project-level configurations
+    proj.build_configurations.each do |cfg|
+      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+      scrub_build_settings_hash.call(cfg.build_settings)
+    end
+
+    # Target-level configurations
+    proj.targets.each do |t|
       t.build_configurations.each do |cfg|
-        cfg.build_settings.each do |k, v|
-          next unless v.is_a?(String) || v.is_a?(Array)
-          arr = v.is_a?(Array) ? v : v.to_s.split(' ')
-          if arr.any? { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
-            puts "[GFLAG] #{label} :: #{t.name} #{cfg.name} #{k} => #{arr.inspect}"
-          end
-        end
+        bs = cfg.build_settings
+        bs['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+        bs['ENABLE_BITCODE'] = 'NO'
+        scrub_build_settings_hash.call(bs)
       end
     end
   end
 
-  # Keep Flutter defaults first (e.g., Swift version, exclusions …)
+  # Keep Flutter default post install at the end (does not re-add -G)
   flutter_post_install(installer) if defined?(flutter_post_install)
-
-  # --- BEFORE scrubbing (to see where it was)
-  log_any_g_flags(installer.pods_project, 'PODS (BEFORE)')
-  installer.aggregate_targets.map(&:user_project).uniq.each { |p| log_any_g_flags(p, 'RUNNER (BEFORE)') }
-
-  # Scrub the Pods project (project-level + all targets/configs)
-  installer.pods_project.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) }
-  installer.pods_project.targets.each do |t|
-    t.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) }
-  end
-
-  # Scrub each user project (Runner, plugin user projects if any)
-  installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
-    proj.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) }
-    proj.targets.each { |t| t.build_configurations.each { |cfg| scrub_settings_hash!(cfg.build_settings) } }
-  end
-
-  # --- AFTER scrubbing (should print nothing)
-  log_any_g_flags(installer.pods_project, 'PODS (AFTER)')
-  installer.aggregate_targets.map(&:user_project).uniq.each { |p| log_any_g_flags(p, 'RUNNER (AFTER)') }
 end
