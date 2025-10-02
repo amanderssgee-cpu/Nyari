@@ -3,12 +3,11 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# Ensure Pods integrate into the correct workspace
+# Use the correct workspace
 workspace 'Runner.xcworkspace'
 
-# Map build configurations
 project 'Runner', {
-  'Debug'   => :debug,
+  'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
@@ -27,71 +26,74 @@ def resolved_flutter_root
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-# Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
+# Load Flutter podhelper (DO NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
-# Flutter’s CocoaPods setup (required)
+# Flutter CocoaPods setup
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Frameworks keep plugins happy (e.g., 'Flutter/Flutter.h' imports)
+  # Prefer frameworks (static) to avoid header import edge cases
   use_frameworks! :linkage => :static
 
-  # Pull in Flutter + all plugin pods
+  # Pull in Flutter + plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Post-install: scrub bad flags globally & lock sane build settings ----
+# ---- Helpers to scrub bad flags everywhere and set sane config ----
+
+# Remove unsupported -G and -G<number> tokens from any String/Array
+def scrub_tokens(val)
+  return [] if val.nil?
+  case val
+  when Array
+    val.flatten.compact.map(&:to_s).reject { |f| f == '-G' || f =~ /\A-G\d+\z/ }
+  else
+    val.to_s.split(' ').reject { |f| f == '-G' || f =~ /\A-G\d+\z/ }
+  end
+end
+
+# Scrub any string/array values inside a build settings hash
+def scrub_build_settings_hash(settings)
+  settings.keys.each do |k|
+    v = settings[k]
+    next if v.nil?
+    if v.is_a?(Array) || v.is_a?(String)
+      settings[k] = scrub_tokens(v)
+    end
+  end
+end
+
+# Apply scrub + settings to a single Xcode project (Pods or Runner)
+def scrub_project!(project, ios_target)
+  # Project-level configs
+  project.build_configurations.each do |cfg|
+    cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+    scrub_build_settings_hash(cfg.build_settings)
+  end
+
+  # Each target's configs
+  project.targets.each do |t|
+    t.build_configurations.each do |cfg|
+      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+      cfg.build_settings['ENABLE_BITCODE'] = 'NO'
+      scrub_build_settings_hash(cfg.build_settings)
+    end
+  end
+end
+
+# ---- Post-install hook ----
 post_install do |installer|
   ios_target = '15.5'
 
-  # Return tokens with ALL -G / -G<number> removed.
-  scrub_tokens = proc do |val|
-    return nil if val.nil?
-    tokens = case val
-      when Array  then val.flatten.compact.map(&:to_s)
-      else              val.to_s.split(' ')
-    end
-    tokens.reject { |t| t == '-G' || t.match?(/\A-G\d+\z/) }
-  end
-
-  # Scrub ANY string/array setting in a settings hash.
-  scrub_build_settings_hash! = proc do |settings|
-    settings.each do |k, v|
-      case v
-      when Array, String
-        cleaned = scrub_tokens.call(v)
-        settings[k] = cleaned.is_a?(Array) ? cleaned : cleaned&.join(' ')
-      end
-    end
-  end
-
-  # Scrub one Xcode project (configs + targets)
-  scrub_project! = proc do |project|
-    project.build_configurations.each do |cfg|
-      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      scrub_build_settings_hash!.call(cfg.build_settings)
-    end
-    project.targets.each do |t|
-      t.build_configurations.each do |cfg|
-        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-        cfg.build_settings['ENABLE_BITCODE'] = 'NO'
-        scrub_build_settings_hash!.call(cfg.build_settings)
-      end
-    end
-  end
-
-  # Run Flutter’s defaults first, then scrub
+  # Keep Flutter defaults first
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  # Scrub Pods project
-  scrub_project!.call(installer.pods_project)
+  # Scrub the Pods project
+  scrub_project!(installer.pods_project, ios_target)
 
-  # Scrub Runner user projects
+  # Scrub the Runner user project(s)
   installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
-    scrub_project!.call(proj)
+    scrub_project!(proj, ios_target)
   end
-
-  # Optional diagnostics (visible in pod install logs)
-  # puts "[DIAG] Searched & scrubbed -G flags across Pods + Runner projects."
 end
