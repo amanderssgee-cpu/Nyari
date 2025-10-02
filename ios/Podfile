@@ -42,56 +42,96 @@ target 'Runner' do
   # (your other pods, if any)
 end
 
-# ---- Nuke any -G flags everywhere CocoaPods touches
+# ---- Helper: scrub any -G tokens from a build settings value
+def scrub_minus_g(val)
+  return val if val.nil?
+  # Xcode sometimes stores settings as arrays; normalize to a flat string, scrub, then split back if needed
+  was_array = val.is_a?(Array)
+  s = was_array ? val.join(' ') : val.to_s
+
+  # Remove '-G', '-G<digits>', or '-G <digits>' in any position, preserving surrounding whitespace
+  s = s.gsub(/\s-G(\s*\d+)?(?=\s|$)/, ' ')
+       .gsub(/\s-G\d+(?=\s|$)/, ' ')
+
+  if was_array
+    s.split(/\s+/).reject(&:empty?)
+  else
+    s.strip
+  end
+end
+
+# ---- Post-install: enforce clean flags at BOTH Pods and Runner targets
 post_install do |installer|
+  # 1) Clean all CocoaPods targets (Pods project)
+  pods_clean_keys = %w[
+    OTHER_CFLAGS
+    OTHER_CPLUSPLUSFLAGS
+    OTHER_LDFLAGS
+    OTHER_LIBTOOLFLAGS
+    CFLAGS
+    CXXFLAGS
+    LDFLAGS
+    OTHER_SWIFT_FLAGS
+    SWIFT_OTHER_FLAGS
+  ]
+
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      %w[
-        OTHER_CFLAGS
-        OTHER_CPLUSPLUSFLAGS
-        OTHER_LDFLAGS
-        OTHER_LIBTOOLFLAGS
-        CFLAGS
-        CXXFLAGS
-        LDFLAGS
-      ].each do |k|
-        v = config.build_settings[k]
-        next if v.nil?
-        v = v.join(' ') if v.is_a?(Array)
-        # remove -G, -G<digits>, or "-G <digits>"
-        v = v.gsub(/\s-G(\s*\d+)?(?=\s|$)/, ' ')
-             .gsub(/\s-G\d+(?=\s|$)/, ' ')
-        config.build_settings[k] = v
-      end
+      pods_clean_keys.each do |k|
+        cleaned = scrub_minus_g(config.build_settings[k])
+        config.build_settings[k] = cleaned unless cleaned.nil?
 
-      # Also ensure these are defined even if missing, so nothing inherited adds -G
-      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS OTHER_LIBTOOLFLAGS].each do |k|
-        config.build_settings[k] ||= '$(inherited)'
+        # Make sure these exist so nothing inherited later injects flags
+        if %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS OTHER_LIBTOOLFLAGS OTHER_SWIFT_FLAGS SWIFT_OTHER_FLAGS].include?(k)
+          config.build_settings[k] = '$(inherited)' if config.build_settings[k].nil? || config.build_settings[k].to_s.empty?
+        end
       end
     end
   end
+  installer.pods_project.save
 
-  # Also scrub the app target settings
+  # 2) Clean the app project (Runner) and any aggregates it references
+  app_project = nil
   installer.aggregate_targets.each do |agg|
-    agg.user_project.native_targets.each do |nt|
+    app_project ||= agg.user_project
+  end
+
+  if app_project
+    app_clean_keys = pods_clean_keys
+
+    # Clean all native targets in the app project (including Runner)
+    app_project.native_targets.each do |nt|
       nt.build_configurations.each do |config|
-        %w[
-          OTHER_CFLAGS
-          OTHER_CPLUSPLUSFLAGS
-          OTHER_LDFLAGS
-          OTHER_LIBTOOLFLAGS
-          CFLAGS
-          CXXFLAGS
-          LDFLAGS
-        ].each do |k|
-          v = config.build_settings[k]
-          next if v.nil?
-          v = v.join(' ') if v.is_a?(Array)
-          v = v.gsub(/\s-G(\s*\d+)?(?=\s|$)/, ' ')
-               .gsub(/\s-G\d+(?=\s|$)/, ' ')
-          config.build_settings[k] = v
+        app_clean_keys.each do |k|
+          cleaned = scrub_minus_g(config.build_settings[k])
+          config.build_settings[k] = cleaned unless cleaned.nil?
+
+          if %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS OTHER_LIBTOOLFLAGS OTHER_SWIFT_FLAGS SWIFT_OTHER_FLAGS].include?(k)
+            config.build_settings[k] = '$(inherited)' if config.build_settings[k].nil? || config.build_settings[k].to_s.empty?
+          end
         end
       end
+    end
+
+    # Also clean the project-level build settings blocks (catch-all)
+    app_project.build_configurations.each do |config|
+      app_clean_keys.each do |k|
+        cleaned = scrub_minus_g(config.build_settings[k])
+        config.build_settings[k] = cleaned unless cleaned.nil?
+
+        if %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS OTHER_LIBTOOLFLAGS OTHER_SWIFT_FLAGS SWIFT_OTHER_FLAGS].include?(k)
+          config.build_settings[k] = '$(inherited)' if config.build_settings[k].nil? || config.build_settings[k].to_s.empty?
+        end
+      end
+    end
+
+    app_project.save
+  end
+
+  # 3) CocoaPods integration notice (harmless warning)
+  installer.aggregate_targets.each do |agg|
+    agg.user_project.build_configurations.each do |config|
+      # Nothing else to do — just leave configs as-is after scrubbing
     end
   end
 end
