@@ -1,4 +1,4 @@
-﻿#include "Generated.xcconfig"
+#include "Generated.xcconfig"
 IPHONEOS_DEPLOYMENT_TARGET=15.5
 OTHER_CFLAGS=$(inherited)
 OTHER_CPLUSPLUSFLAGS=$(inherited)
