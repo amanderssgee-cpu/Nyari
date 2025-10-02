@@ -1,9 +1,8 @@
 # Podfile for Flutter iOS (Xcode 15/16)
-
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# Use the correct workspace
+# Make CocoaPods target the correct workspace
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
@@ -29,71 +28,68 @@ end
 # Load Flutter podhelper (DO NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
-# Flutter CocoaPods setup
+# Flutter’s CocoaPods setup (required)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Prefer frameworks (static) to avoid header import edge cases
+  # Use frameworks to avoid 'Flutter/Flutter.h not found' in some plugins
   use_frameworks! :linkage => :static
 
-  # Pull in Flutter + plugin pods
+  # Pull in Flutter + all plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Helpers to scrub bad flags everywhere and set sane config ----
-
-# Remove unsupported -G and -G<number> tokens from any String/Array
-def scrub_tokens(val)
-  return [] if val.nil?
-  case val
-  when Array
-    val.flatten.compact.map(&:to_s).reject { |f| f == '-G' || f =~ /\A-G\d+\z/ }
-  else
-    val.to_s.split(' ').reject { |f| f == '-G' || f =~ /\A-G\d+\z/ }
-  end
-end
-
-# Scrub any string/array values inside a build settings hash
-def scrub_build_settings_hash(settings)
-  settings.keys.each do |k|
-    v = settings[k]
-    next if v.nil?
-    if v.is_a?(Array) || v.is_a?(String)
-      settings[k] = scrub_tokens(v)
-    end
-  end
-end
-
-# Apply scrub + settings to a single Xcode project (Pods or Runner)
-def scrub_project!(project, ios_target)
-  # Project-level configs
-  project.build_configurations.each do |cfg|
-    cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-    scrub_build_settings_hash(cfg.build_settings)
-  end
-
-  # Each target's configs
-  project.targets.each do |t|
-    t.build_configurations.each do |cfg|
-      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      cfg.build_settings['ENABLE_BITCODE'] = 'NO'
-      scrub_build_settings_hash(cfg.build_settings)
-    end
-  end
-end
-
-# ---- Post-install hook ----
+# ---- Post-install: global scrub of unsupported '-G' + sane build settings ----
 post_install do |installer|
   ios_target = '15.5'
+
+  scrub = proc do |v|
+    arr = (v.is_a?(Array) ? v : v.to_s.split(' ')).map(&:to_s)
+    arr.reject { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
+  end
+
+  scrub_project = proc do |project|
+    # Top-level build configs
+    project.build_configurations.each do |cfg|
+      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+      %w[
+        OTHER_CFLAGS
+        OTHER_CPLUSPLUSFLAGS
+        OTHER_LDFLAGS
+        GCC_PREPROCESSOR_DEFINITIONS
+        WARNING_CFLAGS
+        OTHER_LIBTOOLFLAGS
+      ].each do |k|
+        v = cfg.build_settings[k]
+        cfg.build_settings[k] = scrub.call(v) unless v.nil?
+      end
+    end
+
+    # Target-level build configs
+    project.targets.each do |t|
+      t.build_configurations.each do |cfg|
+        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+        cfg.build_settings['ENABLE_BITCODE'] = 'NO'
+        %w[
+          OTHER_CFLAGS
+          OTHER_CPLUSPLUSFLAGS
+          OTHER_LDFLAGS
+          GCC_PREPROCESSOR_DEFINITIONS
+          WARNING_CFLAGS
+          OTHER_LIBTOOLFLAGS
+        ].each do |k|
+          v = cfg.build_settings[k]
+          cfg.build_settings[k] = scrub.call(v) unless v.nil?
+        end
+      end
+    end
+  end
 
   # Keep Flutter defaults first
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  # Scrub the Pods project
-  scrub_project!(installer.pods_project, ios_target)
-
+  # Scrub Pods project
+  scrub_project.call(installer.pods_project)
   # Scrub the Runner user project(s)
-  installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
-    scrub_project!(proj, ios_target)
-  end
+  installer.aggregate_targets.map(&:user_project).uniq.each { |p| scrub_project.call(p) }
 end
