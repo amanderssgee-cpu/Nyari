@@ -40,26 +40,59 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Post-install: scrub invalid flags in Pods + Runner, set sane build settings ----
+# ---- Post-install: aggressive '-G' scrub + diagnostics (Pods + Runner) ----
 post_install do |installer|
   ios_target = '15.5'
 
-  # Remove unsupported -G / -G<number>
-  scrub = proc do |val|
-    return val if val.nil?
-    tokens = val.is_a?(Array) ? val.compact.map(&:to_s) : val.to_s.split(' ')
-    tokens.reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
+  # Return an Array of tokens with ALL -G / -G<number> removed.
+  def scrub_tokens(val)
+    return [] if val.nil?
+    case val
+    when Array
+      val.flatten.compact.map(&:to_s).reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
+    else
+      val.to_s.split(' ').reject { |f| f == '-G' || f.match?(/\A-G\d+\z/) }
+    end
   end
 
-  # Helper to scrub one project
-  scrub_project = proc do |project|
+  # For logging: show any build settings still containing -G
+  def log_g_flags(project, label)
+    project.targets.each do |t|
+      t.build_configurations.each do |cfg|
+        %w[
+          OTHER_CFLAGS
+          OTHER_CPLUSPLUSFLAGS
+          OTHER_LDFLAGS
+          GCC_PREPROCESSOR_DEFINITIONS
+          WARNING_CFLAGS
+          OTHER_LIBTOOLFLAGS
+        ].each do |key|
+          v = cfg.build_settings[key]
+          next if v.nil?
+          arr = v.is_a?(Array) ? v : v.to_s.split(' ')
+          if arr.any? { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
+            puts "[GFLAG BEFORE] #{label} :: #{t.name} #{cfg.name} #{key} => #{arr.inspect}"
+          end
+        end
+      end
+    end
+  end
+
+  # Apply scrub to the common keys
+  def scrub_project_settings!(project, ios_target)
     project.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
+      %w[
+        OTHER_CFLAGS
+        OTHER_CPLUSPLUSFLAGS
+        OTHER_LDFLAGS
+        GCC_PREPROCESSOR_DEFINITIONS
+        WARNING_CFLAGS
+        OTHER_LIBTOOLFLAGS
+      ].each do |key|
         v = config.build_settings[key]
         next if v.nil?
-        cleaned = scrub.call(v)
-        config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
+        config.build_settings[key] = scrub_tokens(v)
       end
     end
 
@@ -67,24 +100,36 @@ post_install do |installer|
       t.build_configurations.each do |config|
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
         config.build_settings['ENABLE_BITCODE'] = 'NO'
-        %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
+        %w[
+          OTHER_CFLAGS
+          OTHER_CPLUSPLUSFLAGS
+          OTHER_LDFLAGS
+          GCC_PREPROCESSOR_DEFINITIONS
+          WARNING_CFLAGS
+          OTHER_LIBTOOLFLAGS
+        ].each do |key|
           v = config.build_settings[key]
           next if v.nil?
-          cleaned = scrub.call(v)
-          config.build_settings[key] = cleaned.is_a?(Array) ? cleaned : cleaned.join(' ') rescue cleaned
+          config.build_settings[key] = scrub_tokens(v)
         end
       end
     end
   end
 
-  # Keep Flutter defaults
+  # Keep Flutter defaults first
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  # Scrub Pods project
-  scrub_project.call(installer.pods_project)
+  # --- Diagnostics BEFORE scrub ---
+  log_g_flags(installer.pods_project, 'PODS')
+  installer.aggregate_targets.map(&:user_project).uniq.each { |p| log_g_flags(p, 'RUNNER') }
 
-  # Scrub the Runner user project(s)
+  # --- Scrub everywhere: Pods + Runner user projects ---
+  scrub_project_settings!(installer.pods_project, ios_target)
   installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
-    scrub_project.call(proj)
+    scrub_project_settings!(proj, ios_target)
   end
+
+  # --- Diagnostics AFTER scrub (should be silent) ---
+  log_g_flags(installer.pods_project, 'PODS (AFTER)')
+  installer.aggregate_targets.map(&:user_project).uniq.each { |p| log_g_flags(p, 'RUNNER (AFTER)') }
 end
