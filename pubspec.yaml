@@ -3,7 +3,7 @@ description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: "none"
 
 # App version: <marketing>+<build>
-version: 1.0.0+89
+version: 1.0.0+93
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
