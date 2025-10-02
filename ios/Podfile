@@ -2,7 +2,7 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# Make CocoaPods target the correct workspace
+# Use the app workspace
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
@@ -25,33 +25,47 @@ def resolved_flutter_root
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-# Load Flutter podhelper (DO NOT use ENV['FLUTTER_ROOT'])
+# Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
-# Flutter’s CocoaPods setup (required)
+# Flutter setup
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Use frameworks to avoid 'Flutter/Flutter.h not found' in some plugins
+  # Frameworks avoid some plugin header issues
   use_frameworks! :linkage => :static
 
-  # Pull in Flutter + all plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---- Post-install: global scrub of unsupported '-G' + sane build settings ----
-post_install do |installer|
-  ios_target = '15.5'
+# ---------- Helpers to scrub unsupported '-G' flags ----------
+def without_g(tokens)
+  arr = (tokens.is_a?(Array) ? tokens : tokens.to_s.split(' ')).map(&:to_s)
+  arr.reject { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
+end
 
-  scrub = proc do |v|
-    arr = (v.is_a?(Array) ? v : v.to_s.split(' ')).map(&:to_s)
-    arr.reject { |tok| tok == '-G' || tok =~ /\A-G\d+\z/ }
+def scrub_build_settings!(project, ios_target)
+  # project-level
+  project.build_configurations.each do |cfg|
+    cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+    %w[
+      OTHER_CFLAGS
+      OTHER_CPLUSPLUSFLAGS
+      OTHER_LDFLAGS
+      GCC_PREPROCESSOR_DEFINITIONS
+      WARNING_CFLAGS
+      OTHER_LIBTOOLFLAGS
+    ].each do |key|
+      v = cfg.build_settings[key]
+      cfg.build_settings[key] = without_g(v) unless v.nil?
+    end
   end
 
-  scrub_project = proc do |project|
-    # Top-level build configs
-    project.build_configurations.each do |cfg|
+  # target-level
+  project.targets.each do |t|
+    t.build_configurations.each do |cfg|
       cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
+      cfg.build_settings['ENABLE_BITCODE'] = 'NO'
       %w[
         OTHER_CFLAGS
         OTHER_CPLUSPLUSFLAGS
@@ -59,37 +73,48 @@ post_install do |installer|
         GCC_PREPROCESSOR_DEFINITIONS
         WARNING_CFLAGS
         OTHER_LIBTOOLFLAGS
-      ].each do |k|
-        v = cfg.build_settings[k]
-        cfg.build_settings[k] = scrub.call(v) unless v.nil?
-      end
-    end
-
-    # Target-level build configs
-    project.targets.each do |t|
-      t.build_configurations.each do |cfg|
-        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-        cfg.build_settings['ENABLE_BITCODE'] = 'NO'
-        %w[
-          OTHER_CFLAGS
-          OTHER_CPLUSPLUSFLAGS
-          OTHER_LDFLAGS
-          GCC_PREPROCESSOR_DEFINITIONS
-          WARNING_CFLAGS
-          OTHER_LIBTOOLFLAGS
-        ].each do |k|
-          v = cfg.build_settings[k]
-          cfg.build_settings[k] = scrub.call(v) unless v.nil?
-        end
+      ].each do |key|
+        v = cfg.build_settings[key]
+        cfg.build_settings[key] = without_g(v) unless v.nil?
       end
     end
   end
+end
 
-  # Keep Flutter defaults first
+def scrub_xcconfig_files!(root_dir)
+  Dir.glob(File.join(root_dir, '**', '*.xcconfig')).each do |path|
+    begin
+      txt = File.read(path)
+      # remove plain -G and -G<number> tokens bordered by whitespace or line edges
+      cleaned = txt.gsub(/(^|[\s])\-G\d*([\s]|$)/, '\1\2')
+      if cleaned != txt
+        File.write(path, cleaned)
+      end
+    rescue
+      # ignore unreadable files
+    end
+  end
+end
+
+# ---------- post_install runs for EVERY 'pod install' (incl. the one Flutter runs during archive) ----------
+post_install do |installer|
+  ios_target = '15.5'
+
+  # Keep Flutter’s defaults
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  # Scrub Pods project
-  scrub_project.call(installer.pods_project)
-  # Scrub the Runner user project(s)
-  installer.aggregate_targets.map(&:user_project).uniq.each { |p| scrub_project.call(p) }
+  # 1) Scrub Xcode project settings (Pods + Runner user projects)
+  scrub_build_settings!(installer.pods_project, ios_target)
+  installer.aggregate_targets.map(&:user_project).uniq.each do |proj|
+    scrub_build_settings!(proj, ios_target)
+  end
+
+  # 2) ALSO scrub generated .xcconfig support files (this is where -G often sneaks in)
+  #    - Pods Target Support Files (all pods)
+  scrub_xcconfig_files!(File.join(installer.sandbox.root, 'Target Support Files'))
+  #    - Runner’s Flutter/ configs (if any present at this time)
+  app_root = File.expand_path('..', __FILE__)
+  scrub_xcconfig_files!(File.join(app_root, 'Flutter'))
+  #    - Any extra xcconfig inside the Pods directory
+  scrub_xcconfig_files!(installer.sandbox.root)
 end
