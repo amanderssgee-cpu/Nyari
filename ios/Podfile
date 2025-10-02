@@ -5,7 +5,7 @@ ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 workspace 'Runner.xcworkspace'
 
 project 'Runner', {
-  'Debug'   => :debug,
+  'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
@@ -17,13 +17,14 @@ def resolved_flutter_root
     raise "#{generated} must exist. Run 'flutter pub get' first."
   end
   File.foreach(generated) do |line|
-    m = line.match(/FLUTTER_ROOT\=(.*)/)
-    return m[1].strip if m
+    if (m = line.match(/FLUTTER_ROOT\=(.*)/))
+      return m[1].strip
+    end
   end
   raise "FLUTTER_ROOT not found in #{generated}."
 end
 
-# Load Flutter podhelper (DO NOT use ENV['FLUTTER_ROOT'])
+# Load Flutter podhelper (do NOT use ENV['FLUTTER_ROOT'])
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), resolved_flutter_root)
 
 # Flutter CocoaPods setup
@@ -35,7 +36,7 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ==================== GLOBAL '-G' NEUTRALIZATION ====================
+# ====== GLOBAL SCRUB (remove every possible form of "-G") ======
 ALL_FLAG_KEYS = %w[
   OTHER_CFLAGS
   OTHER_CPLUSPLUSFLAGS
@@ -49,53 +50,72 @@ ALL_FLAG_KEYS = %w[
   LD_RUNPATH_SEARCH_PATHS
   OTHER_SWIFT_FLAGS
   SWIFT_ACTIVE_COMPILATION_CONDITIONS
-]
+].freeze
 
-def contains_g_tokens?(val)
+def strip_g_tokens(val)
   arr = Array(val).flatten.compact.map(&:to_s)
-  arr.any? { |t| t == '-G' || t.match?(/\A-G\d+\z/) } ||
-    arr.each_cons(2).any? { |a,b| a == '-G' && b.match?(/\A\d+\z/) }
+  out = []
+  skip_next = false
+  arr.each_with_index do |tok, i|
+    if skip_next
+      skip_next = false
+      next
+    end
+    if tok == '-G'
+      # two-token form: "-G 0"/"-G 1" etc => drop this and the next numeric
+      nxt = arr[i+1]
+      skip_next = (nxt && nxt.match?(/\A\d+\z/))
+      next
+    elsif tok.match?(/\A-G\d+\z/)
+      # single-token form "-G0"/"-G1"
+      next
+    else
+      out << tok
+    end
+  end
+  out
+end
+
+def scrub_build_settings!(cfg)
+  ALL_FLAG_KEYS.each do |k|
+    v = cfg.build_settings[k]
+    next if v.nil?
+    cfg.build_settings[k] = strip_g_tokens(v)
+  end
 end
 
 post_install do |installer|
   ios_target = '15.5'
 
-  # Keep Flutter defaults (e.g., bitcode off, etc.)
+  # Keep Flutter defaults
   flutter_post_install(installer) if defined?(flutter_post_install)
 
-  projects = [installer.pods_project, *installer.aggregate_targets.map(&:user_project).uniq]
+  projects = [installer.pods_project] + installer.aggregate_targets.map(&:user_project).uniq
 
   projects.each do |project|
-    # Project-level configurations
     project.build_configurations.each do |cfg|
       cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
-      ALL_FLAG_KEYS.each do |k|
-        v = cfg.build_settings[k]
-        next if v.nil?
-        # HARD OVERRIDE: if any -G is present, zero the array; otherwise, keep as-is
-        cfg.build_settings[k] = contains_g_tokens?(v) ? [] : v
-      end
+      scrub_build_settings!(cfg)
     end
 
-    # Target-level configurations
     project.targets.each do |t|
       t.build_configurations.each do |cfg|
         cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_target
         cfg.build_settings['ENABLE_BITCODE'] = 'NO'
-        ALL_FLAG_KEYS.each do |k|
-          v = cfg.build_settings[k]
-          next if v.nil?
-          cfg.build_settings[k] = contains_g_tokens?(v) ? [] : v
-        end
+        scrub_build_settings!(cfg)
       end
     end
   end
 
-  # Extra safety: purge -G from all generated xcconfigs on disk
+  # Extra: scrub every Pods Target Support *.xcconfig on disk
   Dir.glob(File.join(installer.sandbox.root, 'Target Support Files', '**', '*.xcconfig')).each do |path|
     txt = File.read(path)
-    txt = txt.gsub(/(^|[\s])\-G(\s+\d+)?(?=[\s]|$)/, ' ').gsub(/  +/, ' ')
+    # remove "-G", "-G 0", "-G 1", "-G0"… and collapse extra spaces
+    txt = txt.gsub(/(^|[\s])\-G(\s+\d+)?(?=[\s]|$)/, ' ')
+             .gsub(/(^|[\s])\-G\d+(?=[\s]|$)/, ' ')
+             .gsub(/  +/, ' ')
+             .gsub(/\s+\n/, "\n")
     File.write(path, txt)
   end
 end
-# ==================== /GLOBAL '-G' NEUTRALIZATION ====================
+# ====== /GLOBAL SCRUB ======
