@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 platform :ios, '15.5'
-=======
-﻿platform :ios, '15.5'
->>>>>>> f22d7f6 (fix(iOS): restore Flutter default post_install and remove modular headers to resolve Flutter.h)
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', { 'Debug' => :debug, 'Profile' => :release, 'Release' => :release }
@@ -17,37 +13,23 @@ def flutter_root
 end
 
 require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
-<<<<<<< HEAD
-
-# IMPORTANT: Do NOT call use_frameworks! and do NOT call use_modular_headers!
-# Let Flutter's podhelper configure the Flutter pod correctly.
-=======
->>>>>>> f22d7f6 (fix(iOS): restore Flutter default post_install and remove modular headers to resolve Flutter.h)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-<<<<<<< HEAD
-  # Keep default static linkage for Flutter pods.
-=======
->>>>>>> f22d7f6 (fix(iOS): restore Flutter default post_install and remove modular headers to resolve Flutter.h)
+  # Keep default static linkage for Flutter pods (do NOT add `use_frameworks!`).
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-<<<<<<< HEAD
-  # Let Flutter set up header search paths, module maps, swift flags, etc.
   installer.pods_project.targets.each do |target|
+    # Flutter’s standard extra settings (header search paths, Swift flags, etc.)
     flutter_additional_ios_build_settings(target)
 
-    # Your explicit settings:
-=======
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
->>>>>>> f22d7f6 (fix(iOS): restore Flutter default post_install and remove modular headers to resolve Flutter.h)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
+      # Avoid simulator arm64 issues on Intel builders
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
