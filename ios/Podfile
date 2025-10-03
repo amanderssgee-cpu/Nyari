@@ -14,11 +14,19 @@ end
 
 require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
 
+# 👇 This line is the key: generate module maps for non-modular pods so Swift can import them.
+use_modular_headers!
+
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # No `use_frameworks!` to avoid linker chaos
+  # Keep default static linkage for Flutter pods (no `use_frameworks!`).
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # If you ever pin pods manually, you can force modular headers per-pod like:
+  # pod 'GoogleUtilities', :modular_headers => true
+  # pod 'FirebaseCore', :modular_headers => true
+  # ...but the global use_modular_headers! above already covers them.
 end
 
 post_install do |installer|
