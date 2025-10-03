@@ -1,7 +1,11 @@
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-project 'Runner', { 'Debug' => :debug, 'Profile' => :release, 'Release' => :release }
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
 
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
@@ -14,7 +18,10 @@ end
 
 require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
 
-# Generate module maps so Swift static pods integrate cleanly.
+# Ensure Flutter engine headers are included
+pod 'Flutter', :path => File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios')
+
+# Generate module maps so Swift static pods integrate cleanly
 use_modular_headers!
 
 flutter_ios_podfile_setup
