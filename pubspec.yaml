@@ -2,8 +2,8 @@
 description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: "none"
 
-# App version: 1.0.0+107
-version: 1.0.0+108
+# App  "version: $($matches[1])+$([int]$matches[2]+1)" 
+ "version: $($matches[1])+$([int]$matches[2]+1)" 
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -39,5 +39,6 @@ flutter:
   # assets:
   #   - assets/
   #   - assets/images/
+
 
 
