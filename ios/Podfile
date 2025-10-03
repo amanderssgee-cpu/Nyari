@@ -1,8 +1,16 @@
+# Use the CocoaPods CDN for reliability/speed
+source 'https://cdn.cocoapods.org/'
+
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-project 'Runner', { 'Debug' => :debug, 'Profile' => :release, 'Release' => :release }
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
 
+# Clean, deterministic installs on CI
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
 def flutter_root
@@ -17,19 +25,22 @@ require File.expand_path(File.join(flutter_root,'packages','flutter_tools','bin'
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep default static linkage for Flutter pods (do NOT add use_frameworks!).
+  # Keep Flutter’s default static linkage, but make Swift pods happy
+  use_frameworks! :linkage => :static
+  use_modular_headers!
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    # Flutter's standard extra settings (header search paths, Swift flags, etc.)
-    flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
-      # Avoid simulator arm64 issues on Intel builders
+      # Avoid simulator arm64 quirks on Intel builders
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
+  # Flutter's additional build settings hook
+  flutter_additional_ios_build_settings(installer)
 end
