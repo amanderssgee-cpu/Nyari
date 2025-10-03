@@ -2,7 +2,7 @@
 description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: "none"
 
- "version: $($matches[1])+$([int]$matches[2]+1)" 
+version: 1.0.0+117
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- Firebase (pins known to work together) ---
+  # --- Firebase (pinned) ---
   firebase_core: ^2.32.0
   cloud_firestore: ^4.17.5
   firebase_auth: ^4.20.0
@@ -28,6 +28,14 @@ dependencies:
   font_awesome_flutter: ^10.7.0
   cupertino_icons: ^1.0.8
 
+  # --- Required by imports in your code ---
+  google_fonts: ^6.2.1
+  timeago: ^3.6.1
+  url_launcher: ^6.3.0
+  image_picker: ^1.1.2
+  google_mlkit_language_id: ^0.13.0
+  google_mlkit_translation: ^0.13.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -35,7 +43,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # assets:
-  #   - assets/
-  #   - assets/images/
-
+  assets:
+    - assets/images/nyari_wordmark.png
