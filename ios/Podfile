@@ -1,5 +1,3 @@
-# ----- Write final Podfile content (UTF-8 without BOM) -----
-$pod = @'
 platform :ios, '15.5'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -16,13 +14,13 @@ end
 
 require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
 
-# Generate module maps for non-modular pods so Swift static pods integrate cleanly.
+# Generate module maps so Swift static pods integrate cleanly.
 use_modular_headers!
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep default static linkage for Flutter pods (do not add `use_frameworks!`).
+  # Keep default static linkage for Flutter pods (do NOT add `use_frameworks!`).
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
@@ -35,11 +33,3 @@ post_install do |installer|
     end
   end
 end
-'@
-
-# Write without BOM
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[IO.File]::WriteAllText("ios\Podfile", $pod, $utf8NoBom)
-
-# Sanity: show any leftover conflict markers (should be none)
-Select-String -Path "ios\Podfile" -Pattern '^[<>=]{7}' -Encoding UTF8 -List | ForEach-Object { $_.Line } | Write-Host
