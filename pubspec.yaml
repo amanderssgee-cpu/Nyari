@@ -2,7 +2,7 @@
 description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: "none"
 
-version: 1.0.0+112
+version: 1.0.0+116
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- Firebase (mutually compatible pins) ---
+  # --- Firebase (pins known to work together) ---
   firebase_core: ^2.32.0
   cloud_firestore: ^4.17.5
   firebase_auth: ^4.20.0
