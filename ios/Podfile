@@ -1,35 +1,39 @@
-platform :ios, "15.5"
-ENV["COCOAPODS_DISABLE_STATS"] = "true"
+platform :ios, '15.5'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-project "Runner", { "Debug" => :debug, "Profile" => :release, "Release" => :release }
+project 'Runner', { 'Debug' => :debug, 'Profile' => :release, 'Release' => :release }
 
-install! "cocoapods", :warn_for_unused_master_specs_repo => false
+install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
 def flutter_root
-  generated = File.expand_path(File.join("..", "Flutter", "Generated.xcconfig"), __FILE__)
+  generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   raise "Run `flutter pub get` first." unless File.exist?(generated)
   File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
   raise "FLUTTER_ROOT not found in Generated.xcconfig"
 end
 
-require File.expand_path(File.join(flutter_root, "packages", "flutter_tools", "bin", "podhelper"), __FILE__)
+require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
 
-# Needed so Swift static pods can import non-modular deps
-use_modular_headers!
+# IMPORTANT: Do NOT call use_frameworks! and do NOT call use_modular_headers!
+# Let Flutter's podhelper configure the Flutter pod correctly.
 
 flutter_ios_podfile_setup
 
-target "Runner" do
-  # Keep default static linkage for Flutter pods (do NOT add `use_frameworks!`).
+target 'Runner' do
+  # Keep default static linkage for Flutter pods.
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  installer.pods_project.targets.each do |t|
-    t.build_configurations.each do |config|
-      config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
-      config.build_settings["ENABLE_BITCODE"] = "NO"
-      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+  # Let Flutter set up header search paths, module maps, swift flags, etc.
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+
+    # Your explicit settings:
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
 end
