@@ -11,11 +11,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- Firebase (pinned) ---
-  firebase_core: ^2.32.0
-  cloud_firestore: ^4.17.5
-  firebase_auth: ^4.20.0
-  firebase_storage: ^11.7.7
+  # --- Firebase (updated to iOS 11+ compatible versions) ---
+  firebase_core: ^3.3.0
+  cloud_firestore: ^5.4.0
+  firebase_auth: ^5.2.0
+  firebase_storage: ^12.2.0
 
   # --- Maps & Location ---
   google_maps_flutter: ^2.12.3
