@@ -1,42 +1,21 @@
-platform :ios, '15.5'
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+platform :ios, '12.0'
 
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
-
-install! 'cocoapods', :warn_for_unused_master_specs_repo => false
-
-def flutter_root
-  generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  raise "Run `flutter pub get` first." unless File.exist?(generated)
-  File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
-  raise "FLUTTER_ROOT not found in Generated.xcconfig"
-end
-
-require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
-
-# Ensure Flutter engine headers are included
-pod 'Flutter', :path => File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios')
-
-# Generate module maps so Swift static pods integrate cleanly
+use_frameworks!
 use_modular_headers!
 
-flutter_ios_podfile_setup
-
 target 'Runner' do
-  # Keep default static linkage for Flutter pods (do NOT add `use_frameworks!`).
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  flutter_application_path = File.join('..', '.flutter-plugins')
+  eval(File.read(File.join(flutter_application_path, 'flutter_application.podspec')), binding)
+
+  # Ensure Flutter headers are found
+  pod 'Flutter', :path => '../.symlinks/flutter/ios'
+
+  # Ensure plugins resolve properly
+  install_all_flutter_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  installer.pods_project.targets.each do |t|
-    t.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-      config.build_settings['ENABLE_BITCODE'] = 'NO'
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-    end
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
   end
 end
