@@ -14,10 +14,10 @@ project 'Runner', {
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
 def flutter_root
-  generated = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  raise 'Run `flutter pub get` first.' unless File.exist?(generated)
+  generated = File.expand_path(File.join('..','Flutter','Generated.xcconfig'), __FILE__)
+  raise "Run `flutter pub get` first." unless File.exist?(generated)
   File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
-  raise 'FLUTTER_ROOT not found in Generated.xcconfig'
+  raise "FLUTTER_ROOT not found in Generated.xcconfig"
 end
 
 require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
@@ -25,23 +25,19 @@ require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'b
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep Flutter static linkage, but allow Swift pods as frameworks
-  use_frameworks! :linkage => :static
-  use_modular_headers!
-
+  # Keep Flutter's default static linkage (do NOT add use_frameworks!)
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    # Apply Flutter's standard iOS build settings to each target
+    # Flutter's standard extra settings
     flutter_additional_ios_build_settings(target)
 
-    # Your additional build settings
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
-      # Avoid simulator arm64 issues on some Intel builders
+      # Avoid simulator arm64 issues on Intel builders
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
