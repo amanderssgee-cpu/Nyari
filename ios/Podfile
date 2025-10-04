@@ -39,9 +39,8 @@ post_install do |installer|
     end
   end
 
-  # Apply Flutter extra settings per target & unify some build settings
   installer.pods_project.targets.each do |t|
-    # Apply Flutter settings target-by-target (safer than calling with installer)
+    # Apply Flutter settings per target (correct usage)
     flutter_additional_ios_build_settings(t) if defined?(flutter_additional_ios_build_settings)
 
     t.build_configurations.each do |config|
@@ -49,11 +48,10 @@ post_install do |installer|
       bs["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
       bs["ENABLE_BITCODE"] = "NO"
       bs["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-
-      # Calm Xcode if any plugin includes a non-modular header in a module
+      # Calm any straggler non-modular includes
       bs["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
 
-      # Force modulemaps for pods that often omit them (fixes gRPC modulemap & Firebase “non-modular header”)
+      # Ensure modulemaps exist for these (fixes missing gRPC modulemap + Firebase header issues)
       %w[gRPC-Core gRPC-C++ BoringSSL-GRPC abseil].each do |podname|
         if t.name == podname
           bs["DEFINES_MODULE"] = "YES"
