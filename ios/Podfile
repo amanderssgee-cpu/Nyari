@@ -20,29 +20,12 @@ end
 
 require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Needed so Swift Firebase pods (Auth/Core/Storage/Firestore) get module maps
+# Swift Firebase pods (Auth/Core/Firestore/Storage) need module maps when static-linking
 use_modular_headers!
 
 target "Runner" do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
-
-# --- NEW: ensure gRPC & friends define modules so modulemaps are emitted ---
-pre_install do |installer|
-  installer.pod_targets.each do |pod|
-    if ["gRPC-Core", "gRPC-C++", "BoringSSL-GRPC", "abseil"].include?(pod.name)
-      # Build as static libraries (Flutter default) and force module generation
-      pod.build_type = Pod::BuildType.static_library
-      pod.user_target_xcconfigs.each do |_, xcconfig|
-        xcconfig["DEFINES_MODULE"] = "YES"
-        xcconfig["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
-      end
-      pod.pod_target_xcconfig["DEFINES_MODULE"] = "YES"
-      pod.pod_target_xcconfig["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
-    end
-  end
-end
-# -------------------------------------------------------------------------
 
 post_install do |installer|
   # Shim for older Flutter podhelper that expects installer.platform_name
@@ -56,21 +39,26 @@ post_install do |installer|
     end
   end
 
-  # Apply Flutter extras per target + unify a few settings
+  # Apply Flutter extra settings per target & unify some build settings
   installer.pods_project.targets.each do |t|
-    flutter_additional_ios_build_settings(t)
+    # Apply Flutter settings target-by-target (safer than calling with installer)
+    flutter_additional_ios_build_settings(t) if defined?(flutter_additional_ios_build_settings)
 
     t.build_configurations.each do |config|
-      config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
-      config.build_settings["ENABLE_BITCODE"] = "NO"
-      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-      config.build_settings["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
+      bs = config.build_settings
+      bs["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
+      bs["ENABLE_BITCODE"] = "NO"
+      bs["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
 
-      # --- NEW: belt & suspenders for gRPC/Abseil/BoringSSL targets ---
-      if ["gRPC-Core", "gRPC-C++", "BoringSSL-GRPC", "abseil"].include?(t.name)
-        config.build_settings["DEFINES_MODULE"] = "YES"
+      # Calm Xcode if any plugin includes a non-modular header in a module
+      bs["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
+
+      # Force modulemaps for pods that often omit them (fixes gRPC modulemap & Firebase “non-modular header”)
+      %w[gRPC-Core gRPC-C++ BoringSSL-GRPC abseil].each do |podname|
+        if t.name == podname
+          bs["DEFINES_MODULE"] = "YES"
+        end
       end
-      # ----------------------------------------------------------------
     end
   end
 end
