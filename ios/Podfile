@@ -20,11 +20,8 @@ end
 
 require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Needed for Swift pods like Firebase when building static
+# Build pods as static libraries; needed for Swift pods (Firebase*, etc.)
 use_modular_headers!
-
-# Keep frameworks static (works best with Flutter + gRPC/Firebase)
-use_frameworks! :linkage => :static
 
 target "Runner" do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -42,7 +39,7 @@ post_install do |installer|
     end
   end
 
-  # ? Call helper per target (NOT with the installer)
+  # Apply Flutter’s extra build settings per target
   installer.pods_project.targets.each do |t|
     flutter_additional_ios_build_settings(t)
     t.build_configurations.each do |config|
