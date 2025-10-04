@@ -1,6 +1,3 @@
-cd C:\flutter_projects\first_flutter_app
-
-$podfile = @'
 source "https://cdn.cocoapods.org/"
 
 platform :ios, "15.5"
@@ -23,10 +20,10 @@ end
 
 require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Needed by Swift pods like Firebase when deps don't define modules
+# Swift pods (Firebase*, etc.) need module maps when building static
 use_modular_headers!
 
-# Keep frameworks static to play well with Flutter + gRPC/Firebase
+# Keep frameworks static for Flutter + gRPC/Firebase
 use_frameworks! :linkage => :static
 
 target "Runner" do
@@ -47,7 +44,7 @@ post_install do |installer|
 
   flutter_additional_ios_build_settings(installer)
 
-  # Cohesive build settings for all pods
+  # Cohesive build settings across all pods
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
@@ -56,7 +53,3 @@ post_install do |installer|
     end
   end
 end
-'@
-
-# Write as UTF-8 (no BOM), with straight quotes, no stray @'
-$podfile | Set-Content ios\Podfile -Encoding UTF8
