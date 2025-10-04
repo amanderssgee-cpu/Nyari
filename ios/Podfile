@@ -20,10 +20,10 @@ end
 
 require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Swift pods (Firebase*, etc.) need module maps when building static
+# Needed for Swift pods like Firebase when building static
 use_modular_headers!
 
-# Keep frameworks static for Flutter + gRPC/Firebase
+# Keep frameworks static (works best with Flutter + gRPC/Firebase)
 use_frameworks! :linkage => :static
 
 target "Runner" do
@@ -42,10 +42,9 @@ post_install do |installer|
     end
   end
 
-  flutter_additional_ios_build_settings(installer)
-
-  # Cohesive build settings across all pods
+  # ? Call helper per target (NOT with the installer)
   installer.pods_project.targets.each do |t|
+    flutter_additional_ios_build_settings(t)
     t.build_configurations.each do |config|
       config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
       config.build_settings["ENABLE_BITCODE"] = "NO"
