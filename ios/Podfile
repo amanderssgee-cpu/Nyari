@@ -18,13 +18,10 @@ def flutter_root
   raise "FLUTTER_ROOT not found in Generated.xcconfig"
 end
 
-require File.expand_path(File.join(flutter_root, "packages", "flutter_tools", "bin", "podhelper"), __FILE__)
+require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# ✅ Swift Firebase pods need module maps
-use_modular_headers!
-
-# ✅ Build pods as static frameworks (fixes gRPC modulemap issues)
-use_frameworks! :linkage => :static
+# ✅ Build static libs, but ensure Swift pods get module maps
+use_modular_headers!   # DO NOT add `use_frameworks!`
 
 target "Runner" do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -42,16 +39,41 @@ post_install do |installer|
     end
   end
 
-  # Apply Flutter extras per target + unify build settings
+  firebase_like = %w[
+    Firebase
+    FirebaseAuth
+    FirebaseAuthInterop
+    FirebaseAppCheckInterop
+    FirebaseCore
+    FirebaseCoreExtension
+    FirebaseCoreInternal
+    FirebaseFirestore
+    FirebaseFirestoreInternal
+    FirebaseSharedSwift
+    FirebaseStorage
+    GoogleUtilities
+  ]
+
   installer.pods_project.targets.each do |t|
+    # Apply Flutter extras per target (important)
     flutter_additional_ios_build_settings(t)
+
     t.build_configurations.each do |config|
-      s = config.build_settings
-      s["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
-      s["ENABLE_BITCODE"] = "NO"
-      s["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-      # ✅ Prevent “non-modular header inside framework module” warnings
-      s["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
+      bs = config.build_settings
+      bs["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
+      bs["ENABLE_BITCODE"] = "NO"
+      bs["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+      bs["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
+
+      # ✅ Make umbrella Firebase pods emit a module (prevents “non-modular header” errors)
+      if firebase_like.include?(t.name)
+        bs["DEFINES_MODULE"] = "YES"
+      end
+
+      # Rare CI edge: ensure gRPC core also defines a module when requested by others
+      if t.name == "gRPC-Core"
+        bs["DEFINES_MODULE"] = "YES"
+      end
     end
   end
 end
