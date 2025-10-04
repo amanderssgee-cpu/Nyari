@@ -1,7 +1,2 @@
-cd C:\flutter_projects\first_flutter_app
-
-# Write a minimal Gemfile that pins CocoaPods
-@"
 source "https://rubygems.org"
 gem "cocoapods", "1.15.2"
-"@ | Set-Content ios\Gemfile -Encoding ASCII
