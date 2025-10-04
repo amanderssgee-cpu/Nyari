@@ -20,7 +20,7 @@ end
 
 require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Build pods as static libraries; needed for Swift pods (Firebase*, etc.)
+# Build pods as static libraries and ensure module maps for Swift pods (Firebase, etc.)
 use_modular_headers!
 
 target "Runner" do
@@ -39,7 +39,7 @@ post_install do |installer|
     end
   end
 
-  # Apply Flutter’s extra build settings per target
+  # Apply Flutter?s extra build settings per target
   installer.pods_project.targets.each do |t|
     flutter_additional_ios_build_settings(t)
     t.build_configurations.each do |config|
