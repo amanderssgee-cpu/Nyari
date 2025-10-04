@@ -1,6 +1,3 @@
-﻿*.pbxproj    text eol=lf working-tree-encoding=UTF-8
-*.plist      text eol=lf working-tree-encoding=UTF-8
-*.xcconfig   text eol=lf working-tree-encoding=UTF-8
-*.storyboard text eol=lf working-tree-encoding=UTF-8
-*.xcscheme   text eol=lf working-tree-encoding=UTF-8
-Podfile      text eol=lf working-tree-encoding=UTF-8
+# Force LF for iOS build scripts so CocoaPods/CI don't choke on CRLF
+ios/Podfile  text eol=lf
+ios/Gemfile  text eol=lf
