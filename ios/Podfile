@@ -1,5 +1,4 @@
-# Podfile
-
+# ios/Podfile
 source "https://cdn.cocoapods.org/"
 
 platform :ios, "15.5"
@@ -14,18 +13,15 @@ project "Runner", {
 install! "cocoapods", :warn_for_unused_master_specs_repo => false
 
 def flutter_root
-  generated = File.expand_path(File.join("..", "Flutter", "Generated.xcconfig"), __FILE__)
+  generated = File.expand_path(File.join("..","Flutter","Generated.xcconfig"), __FILE__)
   raise "Run `flutter pub get` first." unless File.exist?(generated)
   File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
   raise "FLUTTER_ROOT not found in Generated.xcconfig"
 end
 
-require File.expand_path(File.join(flutter_root, "packages", "flutter_tools", "bin", "podhelper"), __FILE__)
+require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Flutter CocoaPods setup
 flutter_ios_podfile_setup
-
-# Keep static linkage and allow Swift pods to see Obj-C pods
 use_modular_headers!
 
 target "Runner" do
@@ -33,21 +29,18 @@ target "Runner" do
 end
 
 post_install do |installer|
-  # --- TEMP compatibility shim for CocoaPods < 1.17.0 (safe no-op on 1.17+) ---
+  # ---- SAFETY SHIM (prevents crash on old CocoaPods) ----
   unless installer.respond_to?(:platform_name)
     def installer.platform_name; "ios"; end
   end
-  # ---------------------------------------------------------------------------
+  # -------------------------------------------------------
 
-  # Flutter’s additional settings (must stay after the shim)
   flutter_additional_ios_build_settings(installer)
 
-  # Your project-wide build tweaks
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
       config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
       config.build_settings["ENABLE_BITCODE"] = "NO"
-      # Work around sim issues on Apple Silicon
       config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
     end
   end
