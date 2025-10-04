@@ -1,10 +1,10 @@
-source "https://cdn.cocoapods.org/"
+﻿source "https://cdn.cocoapods.org/"
 
 platform :ios, "15.5"
 ENV["COCOAPODS_DISABLE_STATS"] = "true"
 
 project "Runner", {
-  "Debug" => :debug,
+  "Debug"   => :debug,
   "Profile" => :release,
   "Release" => :release,
 }
@@ -20,28 +20,18 @@ end
 
 require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
 
-# Do NOT enable global modular headers (breaks gRPC). Set per-pod below.
-# use_modular_headers!
+# Needed by Swift pods like Firebase* when their deps don't define modules
+use_modular_headers!
+
+# Keep frameworks static to play well with Flutter + gRPC/Firebase
+use_frameworks! :linkage => :static
 
 target "Runner" do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-
-  # Swift/static linkage needs these pods to be modular
-  pod "FirebaseAuth",              :modular_headers => true
-  pod "FirebaseCore",              :modular_headers => true
-  pod "FirebaseCoreInternal",      :modular_headers => true
-  pod "FirebaseCoreExtension",     :modular_headers => true
-  pod "FirebaseFirestore",         :modular_headers => true
-  pod "FirebaseFirestoreInternal", :modular_headers => true
-  pod "FirebaseStorage",           :modular_headers => true
-  pod "GoogleUtilities",           :modular_headers => true
-  pod "FirebaseAppCheckInterop",   :modular_headers => true
-  pod "FirebaseAuthInterop",       :modular_headers => true
-  pod "RecaptchaInterop",          :modular_headers => true
 end
 
 post_install do |installer|
-  # Shim for older Flutter podhelper expecting installer.platform_name
+  # Shim for older Flutter podhelper that expects installer.platform_name
   unless installer.respond_to?(:platform_name)
     module Pod
       class Installer
@@ -54,6 +44,7 @@ post_install do |installer|
 
   flutter_additional_ios_build_settings(installer)
 
+  # Cohesive build settings for all pods
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
