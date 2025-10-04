@@ -1,2 +1,5 @@
-﻿source "https://rubygems.org"
+$gemfile = @'
+source "https://rubygems.org"
 gem "cocoapods", "1.15.2"
+'@
+$gemfile | Set-Content ios\Gemfile -Encoding UTF8
