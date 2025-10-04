@@ -1,3 +1,6 @@
+Set-Location C:\flutter_projects\first_flutter_app
+
+$pod = @"
 # Use the CocoaPods CDN for reliability/speed
 source 'https://cdn.cocoapods.org/'
 
@@ -20,25 +23,32 @@ def flutter_root
   raise "FLUTTER_ROOT not found in Generated.xcconfig"
 end
 
-require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'), __FILE__)
+require File.expand_path(File.join(flutter_root,'packages','flutter_tools','bin','podhelper'), __FILE__)
 
 flutter_ios_podfile_setup
 
+# ✅ Key line: allow Obj-C pods (GoogleUtilities, etc.) to be imported from Swift when linked statically
+use_modular_headers!
+
 target 'Runner' do
-  # Keep Flutter's default static linkage (do NOT add use_frameworks!)
+  # Keep Flutter's default static linkage for pods (do NOT add use_frameworks!)
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    # Flutter's standard extra settings
-    flutter_additional_ios_build_settings(target)
+  # Let Flutter set its standard build flags
+  flutter_additional_ios_build_settings(installer)
 
+  # Consistent build settings across configs
+  installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
-      # Avoid simulator arm64 issues on Intel builders
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
 end
+"@
+
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[IO.File]::WriteAllText("ios\Podfile", $pod, $utf8NoBom)
