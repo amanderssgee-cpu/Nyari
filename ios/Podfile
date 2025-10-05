@@ -1,3 +1,6 @@
+Set-Location "C:\flutter_projects\first_flutter_app"
+
+$pod = @'
 platform :ios, '16.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -9,8 +12,7 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Generate module maps for ObjC deps so Swift pods can import them
-use_modular_headers!
+# (No use_modular_headers! — not needed with dynamic frameworks)
 
 # Flutter integration (robust on CI)
 flutter_bin = %x(which flutter).strip
@@ -20,10 +22,10 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Switch to dynamic frameworks for Swift Firebase/ML Kit pods
+  # Use dynamic frameworks for Firebase/ML Kit Swift pods
   use_frameworks! :linkage => :dynamic
 
-  # (No explicit gRPC pins unless a modulemap error appears)
+  # Do NOT pin gRPC unless a modulemap error appears later
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
@@ -33,8 +35,12 @@ post_install do |installer|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Ensure Flutter/Swift module visibility
-      config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['$(inherited)']
+
+      # Ensure Flutter/Swift module visibility for all pods that `#import <Flutter/Flutter.h>`
+      # and Swift targets that import the Flutter module.
+      config.build_settings['FRAMEWORK_SEARCH_PATHS'] = ['$(inherited)', '$(PROJECT_DIR)/Pods/Flutter']
+      config.build_settings['HEADER_SEARCH_PATHS']    = ['$(inherited)', '$(PROJECT_DIR)/Pods/Headers/Public', '$(PROJECT_DIR)/Pods/Headers/Public/Flutter']
+      config.build_settings['OTHER_SWIFT_FLAGS']    ||= ['$(inherited)']
     end
   end
 
@@ -48,3 +54,9 @@ post_install do |installer|
 
   flutter_post_install(installer) if defined?(flutter_post_install)
 end
+'@
+
+$pod | Set-Content -Encoding ascii -NoNewline ios\Podfile
+git add ios\Podfile
+git commit -m "iOS: fix 'Flutter/Flutter.h' not found—remove use_modular_headers, keep dynamic frameworks, add search paths"
+git push origin main
