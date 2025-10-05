@@ -9,6 +9,9 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
+# Generate module maps for ObjC deps so Swift pods can import them
+use_modular_headers!
+
 # Flutter integration (robust on CI)
 flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
@@ -17,18 +20,24 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # NO use_frameworks!, NO use_modular_headers!
+  # Switch to dynamic frameworks for Swift Firebase/ML Kit pods
+  use_frameworks! :linkage => :dynamic
+
+  # (No explicit gRPC pins unless a modulemap error appears)
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  # Enforce iOS 16 across pods + user targets (satisfies ML Kit)
+  # Enforce iOS 16 across pods + user targets
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      # Ensure Flutter/Swift module visibility
+      config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['$(inherited)']
     end
   end
+
   installer.aggregate_targets.each do |aggregate|
     aggregate.user_targets.each do |ut|
       ut.build_configurations.each do |config|
@@ -36,5 +45,6 @@ post_install do |installer|
       end
     end
   end
+
   flutter_post_install(installer) if defined?(flutter_post_install)
 end
