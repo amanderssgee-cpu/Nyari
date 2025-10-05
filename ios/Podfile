@@ -9,7 +9,7 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration (robust on CI)
+# Flutter integration
 flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
@@ -17,16 +17,15 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Dynamic frameworks for Swift Firebase/ML Kit
+  # Swift Firebase/MLKit work well as dynamic frameworks; Obj-C deps get module maps.
   use_frameworks! :linkage => :dynamic
-  # Ensure ObjC deps expose module maps for Swift
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  # Enforce iOS 16 across all pods & user targets
+  # Make every pod + user target iOS 16
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
@@ -40,5 +39,9 @@ post_install do |installer|
       end
     end
   end
-  flutter_post_install(installer) if defined?(flutter_post_install)
+
+  # *** Critical: add Flutter headers & other build flags to every pod target ***
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
 end
