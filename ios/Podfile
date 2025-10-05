@@ -9,7 +9,7 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# ---------- Flutter integration ----------
+# Flutter integration
 flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
@@ -17,29 +17,18 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep static pods (NO use_frameworks!)
+  # Static pods (no use_frameworks!)
   use_modular_headers!
 
-  # --- Hard-pin gRPC to a stable set with working modulemaps ---
-  pod 'gRPC-ProtoRPC', '1.62.2', :modular_headers => true
-  pod 'gRPC-C++',      '1.62.2', :modular_headers => true
-  pod 'gRPC-Core',     '1.62.2', :modular_headers => true
-  # If Protobuf header complaints appear, also pin:
-  # pod 'Protobuf', '3.25.1'
-  # -------------------------------------------------------------
-
+  # No explicit gRPC pins — let Firebase resolve
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
-    # Ensure Flutter’s iOS build settings are applied to every pod target
     flutter_additional_ios_build_settings(t)
-
     t.build_configurations.each do |config|
-      # Enforce iOS 16.0 everywhere (ML Kit / Firebase minimums)
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-      # Fix simulator builds on M1/M2/M3 CI
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
