@@ -9,28 +9,32 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), File.dirname(`which flutter`))
+# ----------------------------------------------------------------------
+# Flutter integration (resolve real flutter SDK path)
+# ----------------------------------------------------------------------
+flutter_bin = `which flutter`.strip
+flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-flutter_root = File.expand_path('..', File.dirname(`which flutter`))
-load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks! :linkage => :static   # <— Static frameworks are safe with most pods
+  # Use static frameworks to avoid gRPC/abseil modulemap chaos, keep Swift interop
+  use_frameworks! :linkage => :static
   use_modular_headers!
 
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  # HARD-PIN gRPC to versions that archive cleanly on Xcode 16
+  pod 'gRPC-Proto', '1.62.2'
+  pod 'gRPC-C++',   '1.62.2'
 
-  # Your plugins (kept implicit via flutter_install_all_ios_pods)
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      # Ensure iOS 13+ (prevents transitive pods from downgrading)
+      # Enforce iOS 13+ and avoid simulator arm64 issues on Intel Macs
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-      # Avoid simulator arch issues locally; harmless on CI archive
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
