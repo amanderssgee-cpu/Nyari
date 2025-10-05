@@ -1,4 +1,7 @@
-platform :ios, '13.0'
+Set-Location "C:\flutter_projects\first_flutter_app"
+
+$pod = @'
+platform :ios, '14.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -28,11 +31,27 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # Force iOS 14.0 on ALL pods and the user target to satisfy ML Kit + Firebase
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    end
+  end
+  installer.aggregate_targets.each do |aggregate|
+    aggregate.user_targets.each do |ut|
+      ut.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      end
     end
   end
   flutter_post_install(installer) if defined?(flutter_post_install)
 end
+'@
+
+$pod | Set-Content -Encoding ascii -NoNewline ios\Podfile
+
+git add ios\Podfile
+git commit -m "iOS: bump deployment target to 14.0 (ML Kit requirement); enforce for Pods + Runner"
+git pull --rebase origin main
+git push origin main
