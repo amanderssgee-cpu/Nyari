@@ -10,7 +10,7 @@ project 'Runner', {
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # Flutter integration (resolve real flutter SDK path)
-flutter_bin = which flutter.strip
+flutter_bin = `which flutter`.strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
