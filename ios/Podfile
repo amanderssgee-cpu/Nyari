@@ -13,14 +13,27 @@ install! "cocoapods", :warn_for_unused_master_specs_repo => false
 
 def flutter_root
   generated = File.expand_path(File.join("..","Flutter","Generated.xcconfig"), __FILE__)
-  raise "Run `flutter pub get` first." unless File.exist?(generated)
-  File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
-  raise "FLUTTER_ROOT not found in Generated.xcconfig"
+  # Preferred: read FLUTTER_ROOT from Generated.xcconfig (after `flutter pub get`)
+  if File.exist?(generated)
+    File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
+  end
+  # Fallback: environment variable
+  env = ENV["FLUTTER_ROOT"]
+  return env if env && !env.empty?
+  # Last resort: infer from `which flutter`
+  begin
+    which = `which flutter`.strip
+    unless which.empty?
+      return File.expand_path(File.join(which, "..", ".."))
+    end
+  rescue
+  end
+  raise "FLUTTER_ROOT not found. Ensure Flutter is installed and available on PATH, or run `flutter pub get` locally once."
 end
 
-require File.expand_path(File.join(flutter_root,"packages","flutter_tools","bin","podhelper"), __FILE__)
+require File.expand_path(File.join(flutter_root, "packages", "flutter_tools", "bin", "podhelper"), __FILE__)
 
-# Swift Firebase pods (Auth/Core/Firestore/Storage) need module maps when static-linking
+# Swift Firebase pods need module maps when linked statically
 use_modular_headers!
 
 target "Runner" do
@@ -40,7 +53,7 @@ post_install do |installer|
   end
 
   installer.pods_project.targets.each do |t|
-    # Apply Flutter settings per target (correct usage)
+    # Apply Flutter’s additional build settings per **target** (correct usage)
     flutter_additional_ios_build_settings(t) if defined?(flutter_additional_ios_build_settings)
 
     t.build_configurations.each do |config|
@@ -48,10 +61,10 @@ post_install do |installer|
       bs["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
       bs["ENABLE_BITCODE"] = "NO"
       bs["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-      # Calm any straggler non-modular includes
+      # Calm any lingering non-modular headers from third-party pods
       bs["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
 
-      # Ensure modulemaps exist for these (fixes missing gRPC modulemap + Firebase header issues)
+      # Ensure modulemaps exist for gRPC stack (fixes missing modulemap / non-modular header issues)
       %w[gRPC-Core gRPC-C++ BoringSSL-GRPC abseil].each do |podname|
         if t.name == podname
           bs["DEFINES_MODULE"] = "YES"
