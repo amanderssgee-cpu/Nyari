@@ -1,75 +1,38 @@
-source "https://cdn.cocoapods.org/"
+platform :ios, '13.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-platform :ios, "15.5"
-ENV["COCOAPODS_DISABLE_STATS"] = "true"
-
-project "Runner", {
-  "Debug"   => :debug,
-  "Profile" => :release,
-  "Release" => :release,
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
 }
 
-install! "cocoapods", :warn_for_unused_master_specs_repo => false
+install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-def flutter_root
-  generated = File.expand_path(File.join("..","Flutter","Generated.xcconfig"), __FILE__)
-  # Preferred: read FLUTTER_ROOT from Generated.xcconfig (after `flutter pub get`)
-  if File.exist?(generated)
-    File.foreach(generated) { |line| return $1.strip if line =~ /FLUTTER_ROOT=(.*)/ }
-  end
-  # Fallback: environment variable
-  env = ENV["FLUTTER_ROOT"]
-  return env if env && !env.empty?
-  # Last resort: infer from `which flutter`
-  begin
-    which = `which flutter`.strip
-    unless which.empty?
-      return File.expand_path(File.join(which, "..", ".."))
-    end
-  rescue
-  end
-  raise "FLUTTER_ROOT not found. Ensure Flutter is installed and available on PATH, or run `flutter pub get` locally once."
-end
+# Flutter integration
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), File.dirname(`which flutter`))
 
-require File.expand_path(File.join(flutter_root, "packages", "flutter_tools", "bin", "podhelper"), __FILE__)
+flutter_root = File.expand_path('..', File.dirname(`which flutter`))
+load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
+flutter_ios_podfile_setup
 
-# Swift Firebase pods need module maps when linked statically
-use_modular_headers!
+target 'Runner' do
+  use_frameworks! :linkage => :static   # <— Static frameworks are safe with most pods
+  use_modular_headers!
 
-target "Runner" do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Your plugins (kept implicit via flutter_install_all_ios_pods)
 end
 
 post_install do |installer|
-  # Shim for older Flutter podhelper that expects installer.platform_name
-  unless installer.respond_to?(:platform_name)
-    module Pod
-      class Installer
-        def platform_name
-          (aggregate_targets.first&.platform&.name || :ios)
-        end
-      end
-    end
-  end
-
   installer.pods_project.targets.each do |t|
-    # Apply Flutter’s additional build settings per **target** (correct usage)
-    flutter_additional_ios_build_settings(t) if defined?(flutter_additional_ios_build_settings)
-
     t.build_configurations.each do |config|
-      bs = config.build_settings
-      bs["IPHONEOS_DEPLOYMENT_TARGET"] = "15.5"
-      bs["ENABLE_BITCODE"] = "NO"
-      bs["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-      # Calm any lingering non-modular headers from third-party pods
-      bs["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
-
-      # Ensure modulemaps exist for gRPC stack (fixes missing modulemap / non-modular header issues)
-      %w[gRPC-Core gRPC-C++ BoringSSL-GRPC abseil].each do |podname|
-        if t.name == podname
-          bs["DEFINES_MODULE"] = "YES"
-        end
-      end
+      # Ensure iOS 13+ (prevents transitive pods from downgrading)
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      # Avoid simulator arch issues locally; harmless on CI archive
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
+  flutter_post_install(installer) if defined?(flutter_post_install)
 end
