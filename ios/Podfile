@@ -1,3 +1,5 @@
+# From C:\flutter_projects\first_flutter_app
+@'
 platform :ios, '13.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -19,13 +21,13 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Use static frameworks to avoid gRPC/abseil modulemap chaos, keep Swift interop
+  # Static frameworks keep Swift interop and avoid many modulemap issues
   use_frameworks! :linkage => :static
   use_modular_headers!
 
-  # HARD-PIN gRPC to versions that archive cleanly on Xcode 16
-  pod 'gRPC-Proto', '1.62.2'
-  pod 'gRPC-C++',   '1.62.2'
+  # gRPC pins (use available patch version from CDN)
+  pod 'gRPC-ProtoRPC', '~> 1.62'
+  pod 'gRPC-C++',      '~> 1.62'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
@@ -33,10 +35,15 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
-      # Enforce iOS 13+ and avoid simulator arm64 issues on Intel Macs
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
   flutter_post_install(installer) if defined?(flutter_post_install)
 end
+'@ | Set-Content -Encoding ascii -NoNewline ios\Podfile
+
+git add ios\Podfile
+git commit -m "iOS Podfile: switch to gRPC-ProtoRPC and loosen pins (~> 1.62)"
+git pull --rebase origin main
+git push origin main
