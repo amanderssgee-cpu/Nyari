@@ -20,10 +20,11 @@ target 'Runner' do
   # Static pods (NO use_frameworks!)
   use_modular_headers!
 
-  # (Optional) Keep if you previously hit gRPC modulemap errors
-  # pod 'gRPC-C++',      :modular_headers => true
-  # pod 'gRPC-Core',     :modular_headers => true
-  # pod 'gRPC-ProtoRPC', :modular_headers => true
+  # Ensure gRPC toolchain exposes modulemaps (fixes gRPC-Core.modulemap not found)
+  pod 'gRPC-C++',       :modular_headers => true
+  pod 'gRPC-Core',      :modular_headers => true
+  pod 'gRPC-ProtoRPC',  :modular_headers => true
+  pod 'BoringSSL-GRPC', :modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
