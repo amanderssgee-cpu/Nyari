@@ -17,14 +17,11 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Static pods (NO use_frameworks!)
-  use_modular_headers!
+  # Build Firebase pods as frameworks so -Swift.h headers are generated and visible
+  use_frameworks! :linkage => :dynamic
 
-  # Ensure gRPC toolchain exposes modulemaps (fixes gRPC-Core.modulemap not found)
-  pod 'gRPC-C++',       :modular_headers => true
-  pod 'gRPC-Core',      :modular_headers => true
-  pod 'gRPC-ProtoRPC',  :modular_headers => true
-  pod 'BoringSSL-GRPC', :modular_headers => true
+  # DO NOT call use_modular_headers! here
+  # DO NOT pin gRPC pods – let Firebase resolve them
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
@@ -35,6 +32,8 @@ post_install do |installer|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
     end
   end
 end
