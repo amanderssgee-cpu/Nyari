@@ -10,17 +10,20 @@ project 'Runner', {
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # Flutter integration
-flutter_bin = %x(which flutter).strip
+flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods statically (NO use_frameworks!)
+  # Build Swift pods as frameworks (static linkage) so -Swift.h headers are generated
+  use_frameworks! :linkage => :static
+
+  # Ensure ObjC pods expose module maps (fixes non-modular includes)
   use_modular_headers!
 
-  # Ensure gRPC toolchain exports modulemaps (fixes gRPC-Core.modulemap not found)
+  # Keep gRPC toolchain visible with modulemaps (some Firebase deps still use it)
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
@@ -31,19 +34,26 @@ end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
-    # Keep Flutter’s build settings in sync with Pods
     flutter_additional_ios_build_settings(t)
 
     t.build_configurations.each do |config|
+      # Base iOS & common flags
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-      # Avoid sim arm64 build issues on Intel Macs / CI simulators
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
-      # IMPORTANT for static pods: do NOT force module-style flags here.
-      # Leave these OFF; enabling them caused the "non-modular header" errors.
-      # config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'NO'
-      # config.build_settings['DEFINES_MODULE'] = 'YES'
-      # config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      # Allow non-modular includes inside framework modules to satisfy some Firebase headers
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    end
+  end
+
+  # Ensure Swift pods are treated as modules (generates -Swift.h for ObjC callers)
+  installer.pod_targets.each do |pt|
+    next unless pt.uses_swift?
+    pt.target_build_configurations.each do |config_name, build_settings|
+      build_settings['DEFINES_MODULE'] = 'YES'
+      # Not strictly required, but keeps Swift ABI stable across slices
+      build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      build_settings['SWIFT_VERSION'] = '5.0'
     end
   end
 end
