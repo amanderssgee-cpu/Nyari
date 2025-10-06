@@ -1,1 +1,40 @@
-<PASTE THE RUBY BLOCK ABOVE HERE EXACTLY>
+platform :ios, '16.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug'   => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+install! 'cocoapods', :warn_for_multiple_pod_sources => false
+
+# Flutter integration
+flutter_bin = %x(which flutter).strip
+flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  # Build pods statically (NO use_frameworks!)
+  use_modular_headers!
+
+  # If you later hit gRPC modulemap errors, uncomment these four:
+  # pod 'gRPC-C++',       :modular_headers => true
+  # pod 'gRPC-Core',      :modular_headers => true
+  # pod 'gRPC-ProtoRPC',  :modular_headers => true
+  # pod 'BoringSSL-GRPC', :modular_headers => true
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |t|
+    flutter_additional_ios_build_settings(t)
+    t.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    end
+  end
+end
