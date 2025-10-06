@@ -9,7 +9,7 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration (robust on CI)
+# Flutter integration
 flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
@@ -17,13 +17,13 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # ✅ Static pods (NO use_frameworks!)
+  # Static pods (NO use_frameworks!)
   use_modular_headers!
 
-  # Keep gRPC toolchain visible to Swift if needed
-  pod 'gRPC-C++',      :modular_headers => true
-  pod 'gRPC-Core',     :modular_headers => true
-  pod 'gRPC-ProtoRPC', :modular_headers => true
+  # (Optional) Keep if you previously hit gRPC modulemap errors
+  # pod 'gRPC-C++',      :modular_headers => true
+  # pod 'gRPC-Core',     :modular_headers => true
+  # pod 'gRPC-ProtoRPC', :modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
