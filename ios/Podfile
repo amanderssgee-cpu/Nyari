@@ -17,14 +17,14 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods statically (NO use_frameworks!)
+  # ✅ Static pods (NO use_frameworks!)
   use_modular_headers!
 
-  # If you later hit gRPC modulemap errors, uncomment these four:
-  # pod 'gRPC-C++',       :modular_headers => true
-  # pod 'gRPC-Core',      :modular_headers => true
-  # pod 'gRPC-ProtoRPC',  :modular_headers => true
-  # pod 'BoringSSL-GRPC', :modular_headers => true
+  # ✅ Highest-confidence add: keep gRPC toolchain modular so modulemaps exist
+  pod 'gRPC-C++',       :modular_headers => true
+  pod 'gRPC-Core',      :modular_headers => true
+  pod 'gRPC-ProtoRPC',  :modular_headers => true
+  pod 'BoringSSL-GRPC', :modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
@@ -35,6 +35,9 @@ post_install do |installer|
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      # Leave these OFF for static pods:
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'NO'
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
     end
   end
 end
