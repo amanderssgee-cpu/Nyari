@@ -7,38 +7,42 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# sane CocoaPods defaults
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# --- Flutter integration ---
-flutter_bin  = %x(which flutter).strip
+# Flutter integration
+flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build Swift pods (Firebase/*) as frameworks so FirebaseAuth-Swift.h exists
-  use_frameworks! :linkage => :dynamic
+  # ? Build pods statically (NO use_frameworks!)
+  use_modular_headers!
 
-  # Ensure the gRPC toolchain publishes modulemaps CocoaPods links to
-  pod 'gRPC-C++',       :modular_headers => true
-  pod 'gRPC-Core',      :modular_headers => true
-  pod 'gRPC-ProtoRPC',  :modular_headers => true
-  pod 'BoringSSL-GRPC', :modular_headers => true
+  # Keep gRPC toolchain visible if Firebase pulls it in
+  pod 'gRPC-C++',      :modular_headers => true
+  pod 'gRPC-Core',     :modular_headers => true
+  pod 'gRPC-ProtoRPC', :modular_headers => true
+  pod 'BoringSSL-GRPC',:modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
+    # Must be called so Flutter/Pods agree on build settings
     flutter_additional_ios_build_settings(t)
+
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Helps mixed Swift/ObjC pods play nicely
-      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+
+      # ?? IMPORTANT for static pods:
+      # Do NOT force non-modular includes or module distribution here.
+      # These two lines should be absent or explicitly NO.
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'NO'
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
     end
   end
 end
