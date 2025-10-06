@@ -7,6 +7,7 @@ project 'Runner', {
   'Release' => :release,
 }
 
+# Helpful CocoaPods opts (safe defaults)
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # Flutter integration
@@ -17,32 +18,25 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Static pods (NO use_frameworks!)
+  # Build Swift pods (Firebase/*) as dynamic frameworks so -Swift.h exists
+  use_frameworks! :linkage => :dynamic
+
+  # Ensure ObjC deps expose module maps for Swift pods
   use_modular_headers!
 
-  # Ensure gRPC toolchain exports modulemaps (fixes prior modulemap errors)
+  # Keep gRPC toolchain visible to Swift (modulemaps)
   pod 'gRPC-C++',      :modular_headers => true
   pod 'gRPC-Core',     :modular_headers => true
   pod 'gRPC-ProtoRPC', :modular_headers => true
-
-  # If you still see FirebaseAuth-Swift.h issues after this build, also add:
-  # pod 'abseil',         :modular_headers => true
-  # pod 'BoringSSL-GRPC', :modular_headers => true
+  # pod 'BoringSSL-GRPC', :modular_headers => true   # (only if needed)
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
-    # Flutter’s standard post-install (search paths, etc.)
     flutter_additional_ios_build_settings(t)
-
     t.build_configurations.each do |config|
-      # Force module generation so Swift umbrella headers are exposed
-      config.build_settings['DEFINES_MODULE']     = 'YES'
-      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-
-      # Your deployment target and common exclusions
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
