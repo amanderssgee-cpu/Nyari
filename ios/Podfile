@@ -1,44 +1,59 @@
-Building iOS
-3m 27s
+platform :ios, '16.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+project 'Runner', {
+  'Debug'   => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
 
+install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
+# Flutter integration
+flutter_bin = %x(which flutter).strip
+flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
+flutter_ios_podfile_setup
 
-== Building for iOS ==
+target 'Runner' do
+  # Build pods as FRAMEWORKS with STATIC linkage.
+  # - Gives you the generated -Swift.h headers FirebaseAuth expects
+  # - Avoids dynamic linking pains on CI
+  use_frameworks! :linkage => :static
 
-> xcode-project use-profiles
-Configure code signing settings
-Searching for files matching /Users/builder/Library/MobileDevice/Provisioning Profiles/*.mobileprovision
-Searching for files matching /Users/builder/Library/MobileDevice/Provisioning Profiles/*.provisionprofile
-List available code signing certificates in keychain /Users/builder/Library/codemagic-cli-tools/keychains/06-10-25_e07yopjt.keychain-db
-Searching for files matching /Users/builder/clone/ios/**/*.xcodeproj
-Completed configuring code signing settings
- - Using profile "Nyari ios_app_store 1759650135" [f2c550e1-5aef-4fd7-982d-72952ef75b12] for target "Runner" [Debug] from project "Runner"
- - Using profile "Nyari ios_app_store 1759650135" [f2c550e1-5aef-4fd7-982d-72952ef75b12] for target "Runner" [Profile] from project "Runner"
- - Using profile "Nyari ios_app_store 1759650135" [f2c550e1-5aef-4fd7-982d-72952ef75b12] for target "Runner" [Release] from project "Runner"
-Generated options for exporting the project
- - Method: app-store
- - Provisioning Profiles:
-     - com.nyari.app: Nyari ios_app_store 1759650135
- - Signing Certificate: Apple Distribution
- - Signing Style: manual
- - Team Id: 57K7Z25R9U
-Saved export options to /Users/builder/export_options.plist
+  # Ensure Objective-C pods expose module maps for Swift frameworks
+  use_modular_headers!
 
-> flutter build ipa --release --export-options-plist /Users/builder/export_options.plist
+  # Keep gRPC toolchain modular so modulemaps are present (fixes old modulemap errors)
+  pod 'gRPC-C++',       :modular_headers => true
+  pod 'gRPC-Core',      :modular_headers => true
+  pod 'gRPC-ProtoRPC',  :modular_headers => true
+  pod 'BoringSSL-GRPC', :modular_headers => true
 
-Archiving com.nyari.app...
-Automatically signing iOS for device deployment using specified development team in Xcode project: 57K7Z25R9U
-Running pod install...                                              9.4s
-Running Xcode build...                                          
-Xcode archive done.                                         186.6s
-Failed to build iOS app
-Lexical or Preprocessor Issue (Xcode): 'FirebaseAuth/FirebaseAuth-Swift.h' file not found
-/Users/builder/clone/ios/Pods/Headers/Private/Firebase/Firebase.h:39:14
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
 
-Encountered error while archiving for device.
+post_install do |installer|
+  installer.pods_project.targets.each do |t|
+    # Make sure Flutter's extra settings are applied
+    flutter_additional_ios_build_settings(t)
 
+    t.build_configurations.each do |config|
+      # iOS base + common CI flags
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
-Build failed :|
-Failed to build for iOS
+      # Key switches for our combo:
+      # - Allow non-modular includes (Firebase.h pulls public headers)
+      # - Build for module distribution (ensures Swift interfaces)
+      # - Define modules so <PodName>/<PodName>-Swift.h resolves
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+
+      # (Optional but harmless) Set Swift version explicitly
+      config.build_settings['SWIFT_VERSION'] = '5.0'
+    end
+  end
+end
