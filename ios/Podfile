@@ -1,60 +1,44 @@
-platform :ios, '16.0'
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+Building iOS
+4m 45s
 
-project 'Runner', {
-  'Debug'   => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
 
-install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration
-flutter_bin  = %x(which flutter).strip
-flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-flutter_ios_podfile_setup
 
-target 'Runner' do
-  # Build Swift pods as dynamic frameworks so -Swift.h headers exist
-  use_frameworks! :linkage => :dynamic
+== Building for iOS ==
 
-  # --- Force module maps for ObjC deps used by Swift Firebase pods ---
-  # Interop & utilities used by FirebaseAuth/Firestore/Storage
-  pod 'FirebaseAuthInterop',      :modular_headers => true
-  pod 'FirebaseAppCheckInterop',  :modular_headers => true
-  pod 'FirebaseCore',             :modular_headers => true
-  pod 'FirebaseCoreExtension',    :modular_headers => true
-  pod 'GoogleUtilities',          :modular_headers => true
-  pod 'RecaptchaInterop',         :modular_headers => true
+> xcode-project use-profiles
+Configure code signing settings
+Searching for files matching /Users/builder/Library/MobileDevice/Provisioning Profiles/*.mobileprovision
+Searching for files matching /Users/builder/Library/MobileDevice/Provisioning Profiles/*.provisionprofile
+List available code signing certificates in keychain /Users/builder/Library/codemagic-cli-tools/keychains/06-10-25_4xayyulz.keychain-db
+Searching for files matching /Users/builder/clone/ios/**/*.xcodeproj
+Completed configuring code signing settings
+ - Using profile "Nyari ios_app_store 1759650135" [f2c550e1-5aef-4fd7-982d-72952ef75b12] for target "Runner" [Debug] from project "Runner"
+ - Using profile "Nyari ios_app_store 1759650135" [f2c550e1-5aef-4fd7-982d-72952ef75b12] for target "Runner" [Profile] from project "Runner"
+ - Using profile "Nyari ios_app_store 1759650135" [f2c550e1-5aef-4fd7-982d-72952ef75b12] for target "Runner" [Release] from project "Runner"
+Generated options for exporting the project
+ - Method: app-store
+ - Provisioning Profiles:
+     - com.nyari.app: Nyari ios_app_store 1759650135
+ - Signing Certificate: Apple Distribution
+ - Signing Style: manual
+ - Team Id: 57K7Z25R9U
+Saved export options to /Users/builder/export_options.plist
 
-  # If Firestore/Storage/Auth are present, make their internals visible, too
-  pod 'FirebaseFirestore',        :modular_headers => true
-  pod 'FirebaseStorage',          :modular_headers => true
-  # (Auth itself is Swift; leaving as-is is fine. If needed, uncomment:)
-  # pod 'FirebaseAuth',             :modular_headers => true
+> flutter build ipa --release --export-options-plist /Users/builder/export_options.plist
 
-  # gRPC toolchain so Firebase (Firestore/Storage) has proper modulemaps
-  pod 'gRPC-C++',       :modular_headers => true
-  pod 'gRPC-Core',      :modular_headers => true
-  pod 'gRPC-ProtoRPC',  :modular_headers => true
-  pod 'BoringSSL-GRPC', :modular_headers => true
-  # ---------------------------------------------------------------
+Archiving com.nyari.app...
+Automatically signing iOS for device deployment using specified development team in Xcode project: 57K7Z25R9U
+Running pod install...                                             12.2s
+Running Xcode build...                                          
+Xcode archive done.                                         260.7s
+Failed to build iOS app
+Lexical or Preprocessor Issue (Xcode): Include of non-modular header inside framework module 'firebase_storage.FLTTaskStateChannelStreamHandler': '/Users/builder/clone/ios/Pods/Headers/Public/Firebase/Firebase.h'
+/Users/builder/.pub-cache/hosted/pub.dev/firebase_storage-12.2.0/ios/Classes/FLTTaskStateChannelStreamHandler.h:12:8
 
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-end
+Encountered error while archiving for device.
 
-post_install do |installer|
-  installer.pods_project.targets.each do |t|
-    flutter_additional_ios_build_settings(t)
-    t.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Needed because some Firebase headers are included directly from frameworks
-      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      # Optional, but keeps Swift interface stable when using frameworks
-      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-    end
-  end
-end
+
+Build failed :|
+Failed to build for iOS
