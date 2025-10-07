@@ -22,7 +22,7 @@ target 'Runner' do
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
-  # Firebase/Google deps that must expose modules for Swift plugins
+  # Firebase/Google deps that must expose modules
   pod 'FirebaseCore',              :modular_headers => true
   pod 'FirebaseCoreExtension',     :modular_headers => true
   pod 'FirebaseCoreInternal',      :modular_headers => true
