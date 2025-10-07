@@ -27,35 +27,29 @@ target 'Runner' do
   pod 'BoringSSL-GRPC', :modular_headers => true
 
   # Firebase/Google deps that Swift pods rely on must expose modules
-  pod 'FirebaseCore',             :modular_headers => true
-  pod 'FirebaseCoreExtension',    :modular_headers => true
-  pod 'FirebaseCoreInternal',     :modular_headers => true
-  pod 'FirebaseAppCheckInterop',  :modular_headers => true
-  pod 'FirebaseAuthInterop',      :modular_headers => true
-  pod 'FirebaseFirestoreInternal',:modular_headers => true
-  pod 'GoogleUtilities',          :modular_headers => true
-  pod 'RecaptchaInterop',         :modular_headers => true
+  pod 'FirebaseCore',              :modular_headers => true
+  pod 'FirebaseCoreExtension',     :modular_headers => true
+  pod 'FirebaseCoreInternal',      :modular_headers => true
+  pod 'FirebaseAppCheckInterop',   :modular_headers => true
+  pod 'FirebaseAuthInterop',       :modular_headers => true
+  pod 'FirebaseFirestoreInternal', :modular_headers => true
+  pod 'GoogleUtilities',           :modular_headers => true
+  pod 'RecaptchaInterop',          :modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  # CocoaPods 1.16-safe loop
   installer.pods_project.targets.each do |t|
-    # Keep Flutter/Xcode build settings aligned
     flutter_additional_ios_build_settings(t) rescue nil
 
     t.build_configurations.each do |config|
       s = config.build_settings
-
-      # iOS baseline and sim-excluded arch
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       s["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = 'arm64'
-
-      # IMPORTANT: allow umbrella/plugin frameworks to import non-modular headers
+      # Allow Swift framework targets (plugins) to import non-modular headers
       s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-
-      # Keep distribution modules OFF with static libs
+      # Keep OFF with static libs
       s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
     end
   end
