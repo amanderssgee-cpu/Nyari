@@ -7,22 +7,23 @@ project 'Runner', {
   'Release' => :release,
 }
 
+# keep CocoaPods output tidy
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration
-flutter_bin = %x(which flutter).strip
+# --- Flutter integration ---
+flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build Swift/C/ObjC pods as static frameworks (generates -Swift.h)
+  # Build Swift/C/ObjC pods as **static frameworks** (generates -Swift.h headers)
   use_frameworks! :linkage => :static
 
-  # Make ObjC-only deps expose modules
+  # Expose modules for Objective-C pods
   use_modular_headers!
 
-  # gRPC toolchain as modules (avoids modulemap errors)
+  # gRPC toolchain as modules (fixes modulemap lookups with Firebase)
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
@@ -32,7 +33,9 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # CocoaPods 1.16-safe loop: don't touch native_target / target_build_configurations
   installer.pods_project.targets.each do |t|
+    # keep Flutter & Pods build settings aligned (defensive)
     begin
       flutter_additional_ios_build_settings(t)
     rescue
@@ -40,16 +43,22 @@ post_install do |installer|
 
     t.build_configurations.each do |config|
       s = config.build_settings
-      # iOS 16 baseline; exclude arm64 on iOS Simulator
+
+      # iOS baseline & Simulator quirk
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
-      # Framework-style behaviors so Firebase umbrella imports -Swift.h cleanly
+      # Make pods behave like proper frameworks so umbrella headers can import -Swift.h
       s['DEFINES_MODULE'] = 'YES'
       s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
-      # Keep this OFF with static frameworks.
+      # Keep OFF for static frameworks
       s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+
+      # Ensure Swift bridging headers (-Swift.h) are generated & exported for Swift pods (e.g., FirebaseAuth)
+      s['SWIFT_VERSION'] = '5.0'
+      s['SWIFT_INSTALL_OBJC_HEADER'] = 'YES'
+      s['SWIFT_OBJC_INTERFACE_HEADER_NAME'] = '$(SWIFT_MODULE_NAME)-Swift.h'
     end
   end
 end
