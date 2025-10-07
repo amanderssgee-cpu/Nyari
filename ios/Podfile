@@ -7,7 +7,6 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# Prevent spec repo noise + speed up
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # --- Flutter integration ---
@@ -17,13 +16,13 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods as FRAMEWORKS with STATIC linkage (best mix for Firebase + plugins)
+  # Frameworks with STATIC linkage = Swift shims available, fewer embed issues
   use_frameworks! :linkage => :static
 
-  # Also keep modular headers so ObjC pods (gRPC etc.) expose modulemaps
+  # Keep modular headers so ObjC pods (e.g., gRPC) export modulemaps
   use_modular_headers!
 
-  # Help CocoaPods create/keep gRPC modulemaps visible when needed
+  # Ensure gRPC toolchain exposes module maps on CI runners
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
@@ -32,38 +31,32 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ---------------------------
-# CocoaPods 1.16-safe post_install:
-# Only touch Xcodeproj targets (no Pod::PodTarget accessors)
-# ---------------------------
+# CocoaPods 1.16-safe post_install: only touch Xcodeproj targets
 post_install do |installer|
-  # This allows Firebase umbrella to include Swift shims (e.g., FirebaseAuth-Swift.h)
-  # while still tolerating some non-modular includes in third-party headers.
   def set_build_setting(target, key, value)
     target.build_configurations.each do |config|
       config.build_settings[key] = value
     end
   end
 
-  # Iterate Xcodeproj targets only (safe on 1.16.x)
   installer.pods_project.targets.each do |t|
-    # Flutter’s extra flags (bitcode off, dead_strip, etc.)
+    # Flutter’s defaults (bitcode off, dead_strip, etc.)
     flutter_additional_ios_build_settings(t)
 
-    # Minimum iOS + simulator arch exclusion
+    # Minimum iOS + avoid sim arm64 issues
     set_build_setting(t, 'IPHONEOS_DEPLOYMENT_TARGET', '16.0')
     set_build_setting(t, 'EXCLUDED_ARCHS[sdk=iphonesimulator*]', 'arm64')
 
-    # Make frameworks definable as modules so Swift can see -Swift.h overlays
+    # Make frameworks proper modules so Swift shim headers (e.g., FirebaseAuth-Swift.h) exist
     set_build_setting(t, 'DEFINES_MODULE', 'YES')
 
-    # Allow a few non-modular includes inside framework modules (firebase_storage pulls Firebase.h)
+    # Some Firebase plugins include umbrella headers — allow it at pod level
     set_build_setting(t, 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES', 'YES')
 
-    # Keep this OFF for pods to avoid ABI-stability headaches on CI
+    # Keep ABI-stability off for pods on CI
     set_build_setting(t, 'BUILD_LIBRARY_FOR_DISTRIBUTION', 'NO')
 
-    # When linking static frameworks, don’t embed Swift stdlib from pods
+    # Don’t embed Swift stdlib from pods when linking static frameworks
     set_build_setting(t, 'ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES', 'NO')
   end
 end
