@@ -17,10 +17,10 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods statically (no dynamic frameworks — avoids non-modular header drama)
+  # ✅ Build pods statically (do NOT use `use_frameworks!`)
   use_modular_headers!
 
-  # Ensure gRPC toolchain has modulemaps visible to the compiler
+  # ✅ Ensure gRPC exports modulemaps (fixes "gRPC-Core.modulemap not found")
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
@@ -30,20 +30,24 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  # CocoaPods 1.16-safe: operate on the generated Xcode targets directly
+  # CocoaPods 1.16-safe iteration (no target_build_configurations/native_target calls)
   installer.pods_project.targets.each do |t|
-    # Required so Flutter & Pods agree on build flags
     flutter_additional_ios_build_settings(t)
 
     t.build_configurations.each do |config|
+      # iOS min + sim arm64 exclusion (common Flutter setting)
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-      # Speed up simulator builds on Intel hosts / avoid M1-only arch there
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Keep this OFF for static pods (prevents non-modular include masking)
+
+      # ❌ Never force non-modular includes for static pods
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'NO'
-      # Do NOT turn these on for static pods:
-      config.build_settings.delete('BUILD_LIBRARY_FOR_DISTRIBUTION')
+
+      # ❌ Do NOT try to make static pods behave like modules
       config.build_settings.delete('DEFINES_MODULE')
+      config.build_settings.delete('BUILD_LIBRARY_FOR_DISTRIBUTION')
+
+      # Some Swift-y plugins forget to set this; harmless default
+      config.build_settings['SWIFT_VERSION'] ||= '5.0'
     end
   end
 end
