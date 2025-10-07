@@ -25,6 +25,9 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
+# Important: make Swift pods dynamic to avoid modular header requirement
+use_frameworks! :linkage => :dynamic
+
 target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
