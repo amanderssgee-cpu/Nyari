@@ -1,1 +1,57 @@
-[PASTE THE RUBY FROM SECTION 1 HERE VERBATIM]
+Set-Location "C:\flutter_projects\first_flutter_app"
+
+$pod = @'
+platform :ios, '16.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug'   => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+install! 'cocoapods', :warn_for_multiple_pod_sources => false
+
+# ---- Flutter integration ----
+flutter_bin  = %x(which flutter).strip
+flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  # Keep CocoaPods default (static libraries). Do NOT call use_frameworks! or use_modular_headers! globally.
+
+  # gRPC toolchain must expose modules
+  pod 'gRPC-C++',       :modular_headers => true
+  pod 'gRPC-Core',      :modular_headers => true
+  pod 'gRPC-ProtoRPC',  :modular_headers => true
+  pod 'BoringSSL-GRPC', :modular_headers => true
+
+  # Firebase/Google deps that Swift pods rely on — expose modules
+  pod 'FirebaseCore',              :modular_headers => true
+  pod 'FirebaseCoreExtension',     :modular_headers => true
+  pod 'FirebaseCoreInternal',      :modular_headers => true
+  pod 'FirebaseAppCheckInterop',   :modular_headers => true
+  pod 'FirebaseAuthInterop',       :modular_headers => true
+  pod 'FirebaseFirestoreInternal', :modular_headers => true
+  pod 'GoogleUtilities',           :modular_headers => true
+  pod 'RecaptchaInterop',          :modular_headers => true
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |t|
+    flutter_additional_ios_build_settings(t) rescue nil
+    t.build_configurations.each do |config|
+      s = config.build_settings
+      s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+    end
+  end
+end
+'@
+
+$pod | Set-Content -Encoding ASCII -NoNewline ios\Podfile
