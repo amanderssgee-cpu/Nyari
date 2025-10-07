@@ -7,7 +7,6 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# Quieter output and stable behavior
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # Flutter integration
@@ -32,13 +31,10 @@ end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
-    # Keep Flutter’s build settings aligned
     flutter_additional_ios_build_settings(t) rescue nil
 
     t.build_configurations.each do |config|
       s = config.build_settings
-
-      # iOS 16 baseline; speed up sim builds on Intel workers
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
