@@ -1,3 +1,6 @@
+Set-Location "C:\flutter_projects\first_flutter_app"
+
+$pod = @'
 platform :ios, '15.5'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -8,7 +11,20 @@ project 'Runner', {
   'Release' => :release,
 }
 
-require_relative '../Flutter/podhelper'
+# Locate Flutter SDK path from Generated.xcconfig (works on CI)
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "Generated.xcconfig must exist. If you're running pod install manually, make sure `flutter pub get` is executed first"
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    match = line.match(/FLUTTER_ROOT\=(.*)/)
+    return match[1].strip if match
+  end
+  raise "FLUTTER_ROOT not found in Generated.xcconfig"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 flutter_ios_podfile_setup
 
@@ -21,3 +37,6 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
   end
 end
+'@
+
+$pod | Set-Content -Encoding ASCII ios\Podfile
