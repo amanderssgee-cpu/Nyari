@@ -9,14 +9,14 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration (works on CI and locally)
+# Flutter integration
 flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods as static frameworks (generates -Swift.h when needed)
+  # Build pods as static frameworks (emits -Swift.h headers).
   use_frameworks! :linkage => :static
 
   # gRPC toolchain as modules
@@ -25,7 +25,7 @@ target 'Runner' do
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
-  # Firebase & Google deps that need modulemaps when static-linked
+  # Firebase/Google deps that need modules when static
   pod 'FirebaseCore',              :modular_headers => true
   pod 'FirebaseCoreExtension',     :modular_headers => true
   pod 'FirebaseCoreInternal',      :modular_headers => true
@@ -44,7 +44,6 @@ post_install do |installer|
       flutter_additional_ios_build_settings(t)
     rescue
     end
-
     t.build_configurations.each do |config|
       s = config.build_settings
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
