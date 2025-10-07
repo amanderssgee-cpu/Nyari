@@ -7,53 +7,55 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# Keep CocoaPods output sane
+# keep Pod install quiet-ish
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration
+# ---- Flutter integration ----
 flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # IMPORTANT: No global use_frameworks!/use_modular_headers! here.
-  # We keep pods as static libraries, and selectively enable modules
-  # only for the ObjC pods that Swift-based Firebase pods rely on.
+  # DO NOT call use_frameworks! or use_modular_headers! globally.
+  # Build pods as static libraries (CocoaPods default).
 
-  # gRPC toolchain as modules (needed by FirebaseFirestore via grpc)
+  # gRPC toolchain must expose modules
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
-  # Firebase & Google ObjC deps as modules so Swift Firebase pods can import them
-  pod 'GoogleUtilities',          :modular_headers => true
-  pod 'RecaptchaInterop',         :modular_headers => true
+  # Firebase/Google deps that Swift pods rely on must expose modules
   pod 'FirebaseCore',             :modular_headers => true
   pod 'FirebaseCoreExtension',    :modular_headers => true
   pod 'FirebaseCoreInternal',     :modular_headers => true
   pod 'FirebaseAppCheckInterop',  :modular_headers => true
   pod 'FirebaseAuthInterop',      :modular_headers => true
   pod 'FirebaseFirestoreInternal',:modular_headers => true
+  pod 'GoogleUtilities',          :modular_headers => true
+  pod 'RecaptchaInterop',         :modular_headers => true
 
-  # Let Flutter add the rest of the plugin pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
+  # CocoaPods 1.16-safe loop
   installer.pods_project.targets.each do |t|
-    # Keep Flutter’s extra settings in sync
+    # Keep Flutter/Xcode build settings aligned
     flutter_additional_ios_build_settings(t) rescue nil
 
     t.build_configurations.each do |config|
       s = config.build_settings
+
+      # iOS baseline and sim-excluded arch
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-      s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Ensure Clang modules are on (so modulemaps are respected)
-      s['CLANG_ENABLE_MODULES'] = 'YES'
-      # Do NOT force frameworks or distribution here; pods are static libs
-      s['DEFINES_MODULE'] = 'NO'
+      s["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = 'arm64'
+
+      # IMPORTANT: allow umbrella/plugin frameworks to import non-modular headers
+      s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+
+      # Keep distribution modules OFF with static libs
       s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
     end
   end
