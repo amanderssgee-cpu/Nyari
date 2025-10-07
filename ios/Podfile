@@ -1,48 +1,38 @@
-platform :ios, '16.0'
+platform :ios, '13.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
-  'Debug'   => :debug,
+  'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-flutter_bin  = %x(which flutter).strip
-flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+# Flutter integration
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), File.dirname(`which flutter`))
+
+flutter_root = File.expand_path('..', File.dirname(`which flutter`))
+load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  pod 'gRPC-C++',       :modular_headers => true
-  pod 'gRPC-Core',      :modular_headers => true
-  pod 'gRPC-ProtoRPC',  :modular_headers => true
-  pod 'BoringSSL-GRPC', :modular_headers => true
-
-  pod 'FirebaseCore',              :modular_headers => true
-  pod 'FirebaseCoreExtension',     :modular_headers => true
-  pod 'FirebaseCoreInternal',      :modular_headers => true
-  pod 'FirebaseAppCheckInterop',   :modular_headers => true
-  pod 'FirebaseAuthInterop',       :modular_headers => true
-  pod 'FirebaseFirestoreInternal', :modular_headers => true
-  pod 'GoogleUtilities',           :modular_headers => true
-  pod 'RecaptchaInterop',          :modular_headers => true
+  use_frameworks! :linkage => :static   # <— Static frameworks are safe with most pods
+  use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Your plugins (kept implicit via flutter_install_all_ios_pods)
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
-    flutter_additional_ios_build_settings(t) rescue nil
     t.build_configurations.each do |config|
-      s = config.build_settings
-      s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-      s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      s['CLANG_ENABLE_MODULES'] = 'YES'
-      s['DEFINES_MODULE'] = 'YES'
-      s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+      # Ensure iOS 13+ (prevents transitive pods from downgrading)
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      # Avoid simulator arch issues locally; harmless on CI archive
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
+  flutter_post_install(installer) if defined?(flutter_post_install)
 end
