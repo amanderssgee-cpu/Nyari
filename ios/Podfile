@@ -9,23 +9,23 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# Flutter integration
+# -------- Flutter integration --------
 flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # NO use_frameworks!  -> build everything as static libraries
+  # Use dynamic frameworks so Swift pods generate -Swift.h correctly
+  use_frameworks! :linkage => :dynamic
 
-  # === gRPC toolchain (module maps on) ===
-  pod 'gRPC-C++',       :modular_headers => true
-  pod 'gRPC-Core',      :modular_headers => true
-  pod 'gRPC-ProtoRPC',  :modular_headers => true
-  pod 'BoringSSL-GRPC', :modular_headers => true
+  # --- Explicit top-level Firebase pods (NEEDED) ---
+  # These create the Swift interfaces that Firebase.h tries to include
+  pod 'FirebaseAuth',      :modular_headers => true
+  pod 'FirebaseStorage',   :modular_headers => true
+  pod 'FirebaseFirestore', :modular_headers => true
 
-  # === Firebase umbrella + deps as modular headers (needed for Swift interop) ===
-  pod 'Firebase',                  :modular_headers => true
+  # --- Make Firebase core deps modular so Swift import works cleanly ---
   pod 'FirebaseCore',              :modular_headers => true
   pod 'FirebaseCoreExtension',     :modular_headers => true
   pod 'FirebaseCoreInternal',      :modular_headers => true
@@ -34,6 +34,12 @@ target 'Runner' do
   pod 'FirebaseFirestoreInternal', :modular_headers => true
   pod 'GoogleUtilities',           :modular_headers => true
   pod 'RecaptchaInterop',          :modular_headers => true
+
+  # --- gRPC toolchain as modular headers (fixes modulemap issues) ---
+  pod 'gRPC-C++',       :modular_headers => true
+  pod 'gRPC-Core',      :modular_headers => true
+  pod 'gRPC-ProtoRPC',  :modular_headers => true
+  pod 'BoringSSL-GRPC', :modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
