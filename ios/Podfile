@@ -10,20 +10,17 @@ project 'Runner', {
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # Flutter integration
-flutter_bin  = %x(which flutter).strip
+flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build Swift-using pods as frameworks (static linkage) so the `-Swift.h` headers exist
-  use_frameworks! :linkage => :static
-
-  # Keep Obj-C pods modular to avoid non-modular header errors
+  # Build pods statically (no dynamic frameworks — avoids non-modular header drama)
   use_modular_headers!
 
-  # Ensure the gRPC toolchain exposes modulemaps (fixes gRPC-Core.modulemap not found)
+  # Ensure gRPC toolchain has modulemaps visible to the compiler
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
@@ -33,24 +30,20 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  # Flutter recommended extra build settings for each target
+  # CocoaPods 1.16-safe: operate on the generated Xcode targets directly
   installer.pods_project.targets.each do |t|
+    # Required so Flutter & Pods agree on build flags
     flutter_additional_ios_build_settings(t)
+
     t.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      # Speed up simulator builds on Intel hosts / avoid M1-only arch there
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Allow firebase_* Swift modules to import umbrella headers that re-export ObjC pods
-      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-    end
-  end
-
-  # CocoaPods 1.16.x: set Swift/module flags using the supported API
-  installer.pod_targets.each do |pt|
-    next unless pt.uses_swift?
-    pt.native_target.build_configurations.each do |bc|
-      bc.build_settings['DEFINES_MODULE'] = 'YES'
-      bc.build_settings['SWIFT_VERSION']  = '5.0'
-      bc.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      # Keep this OFF for static pods (prevents non-modular include masking)
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'NO'
+      # Do NOT turn these on for static pods:
+      config.build_settings.delete('BUILD_LIBRARY_FOR_DISTRIBUTION')
+      config.build_settings.delete('DEFINES_MODULE')
     end
   end
 end
