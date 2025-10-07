@@ -9,20 +9,20 @@ project 'Runner', {
 
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# --- Flutter integration ---
+# Flutter integration
 flutter_bin = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Frameworks with STATIC linkage = Swift shims available, fewer embed issues
+  # Build Swift/C/ObjC pods as static frameworks (creates -Swift.h)
   use_frameworks! :linkage => :static
 
-  # Keep modular headers so ObjC pods (e.g., gRPC) export modulemaps
+  # Expose modules for ObjC-only deps
   use_modular_headers!
 
-  # Ensure gRPC toolchain exposes module maps on CI runners
+  # gRPC toolchain as modules (avoids modulemap errors)
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
@@ -31,32 +31,16 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# CocoaPods 1.16-safe post_install: only touch Xcodeproj targets
 post_install do |installer|
-  def set_build_setting(target, key, value)
-    target.build_configurations.each do |config|
-      config.build_settings[key] = value
-    end
-  end
-
   installer.pods_project.targets.each do |t|
-    # Flutter’s defaults (bitcode off, dead_strip, etc.)
-    flutter_additional_ios_build_settings(t)
-
-    # Minimum iOS + avoid sim arm64 issues
-    set_build_setting(t, 'IPHONEOS_DEPLOYMENT_TARGET', '16.0')
-    set_build_setting(t, 'EXCLUDED_ARCHS[sdk=iphonesimulator*]', 'arm64')
-
-    # Make frameworks proper modules so Swift shim headers (e.g., FirebaseAuth-Swift.h) exist
-    set_build_setting(t, 'DEFINES_MODULE', 'YES')
-
-    # Some Firebase plugins include umbrella headers — allow it at pod level
-    set_build_setting(t, 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES', 'YES')
-
-    # Keep ABI-stability off for pods on CI
-    set_build_setting(t, 'BUILD_LIBRARY_FOR_DISTRIBUTION', 'NO')
-
-    # Don’t embed Swift stdlib from pods when linking static frameworks
-    set_build_setting(t, 'ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES', 'NO')
+    flutter_additional_ios_build_settings(t) rescue nil
+    t.build_configurations.each do |config|
+      s = config.build_settings
+      s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      s['DEFINES_MODULE'] = 'YES'
+      s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+    end
   end
 end
