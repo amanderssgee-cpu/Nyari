@@ -16,16 +16,16 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Static frameworks so Swift shims (-Swift.h) are generated
-  use_frameworks! :linkage => :static
+  # NO use_frameworks!  -> build everything as static libraries
 
-  # gRPC toolchain as modules
+  # === gRPC toolchain (module maps on) ===
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
-  # Firebase/Google deps that need modules when static
+  # === Firebase umbrella + deps as modular headers (needed for Swift interop) ===
+  pod 'Firebase',                  :modular_headers => true
   pod 'FirebaseCore',              :modular_headers => true
   pod 'FirebaseCoreExtension',     :modular_headers => true
   pod 'FirebaseCoreInternal',      :modular_headers => true
