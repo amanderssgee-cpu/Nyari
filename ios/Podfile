@@ -7,35 +7,37 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# keep CocoaPods output tidy
+# Quiet multi-source warnings
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# --- Flutter integration ---
+# Flutter integration
 flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build Swift/C/ObjC pods as **static frameworks** (generates -Swift.h headers)
+  # Build pods as **static frameworks** (generates -Swift.h for Swift pods)
   use_frameworks! :linkage => :static
 
-  # Expose modules for Objective-C pods
+  # Expose ObjC pods as modules
   use_modular_headers!
 
-  # gRPC toolchain as modules (fixes modulemap lookups with Firebase)
+  # gRPC toolchain as modules (fixes modulemap lookups)
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
+  # Make Firebase umbrella header a module so frameworks can import <Firebase/Firebase.h>
+  pod 'Firebase', :modular_headers => true
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  # CocoaPods 1.16-safe loop: don't touch native_target / target_build_configurations
   installer.pods_project.targets.each do |t|
-    # keep Flutter & Pods build settings aligned (defensive)
+    # Keep Flutter/Pods build settings aligned
     begin
       flutter_additional_ios_build_settings(t)
     rescue
@@ -44,21 +46,16 @@ post_install do |installer|
     t.build_configurations.each do |config|
       s = config.build_settings
 
-      # iOS baseline & Simulator quirk
+      # Baseline + simulator arch workaround
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
-      # Make pods behave like proper frameworks so umbrella headers can import -Swift.h
+      # Framework-like behavior so Swift umbrellas resolve cleanly
       s['DEFINES_MODULE'] = 'YES'
       s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
-      # Keep OFF for static frameworks
+      # Leave OFF for static frameworks
       s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
-
-      # Ensure Swift bridging headers (-Swift.h) are generated & exported for Swift pods (e.g., FirebaseAuth)
-      s['SWIFT_VERSION'] = '5.0'
-      s['SWIFT_INSTALL_OBJC_HEADER'] = 'YES'
-      s['SWIFT_OBJC_INTERFACE_HEADER_NAME'] = '$(SWIFT_MODULE_NAME)-Swift.h'
     end
   end
 end
