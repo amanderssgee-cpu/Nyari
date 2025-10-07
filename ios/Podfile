@@ -7,24 +7,19 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# Quiet multi-source warnings
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
-# --- Flutter integration (robust path on CI like Codemagic) ---
 flutter_bin  = %x(which flutter).strip
 flutter_root = File.expand_path('..', File.dirname(File.realpath(flutter_bin)))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 flutter_ios_podfile_setup
-# --------------------------------------------------------------
 
 target 'Runner' do
-  # gRPC toolchain as modular headers (ObjC pods expose modules)
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
-  # Firebase/Google deps that Swift pods require as modules when linked statically
   pod 'FirebaseCore',              :modular_headers => true
   pod 'FirebaseCoreExtension',     :modular_headers => true
   pod 'FirebaseCoreInternal',      :modular_headers => true
@@ -34,14 +29,12 @@ target 'Runner' do
   pod 'GoogleUtilities',           :modular_headers => true
   pod 'RecaptchaInterop',          :modular_headers => true
 
-  # Install all Flutter pods; CocoaPods keeps them as static libs by default
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
     flutter_additional_ios_build_settings(t) rescue nil
-
     t.build_configurations.each do |config|
       s = config.build_settings
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
