@@ -16,7 +16,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods as static frameworks (emits -Swift.h headers).
+  # Static frameworks so Swift shims (-Swift.h) are generated
   use_frameworks! :linkage => :static
 
   # gRPC toolchain as modules
