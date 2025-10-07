@@ -16,7 +16,8 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Keep CocoaPods default (static libraries). Do NOT call use_frameworks! or use_modular_headers! globally.
+  # Keep default CocoaPods integration (static libraries).
+  # DO NOT call use_frameworks! or use_modular_headers! globally.
 
   # gRPC toolchain must expose modules for Swift interop
   pod 'gRPC-C++',       :modular_headers => true
@@ -39,14 +40,20 @@ end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
+    # Keep this call compatible with CocoaPods 1.16 (no native_target access)
     flutter_additional_ios_build_settings(t) rescue nil
+
     t.build_configurations.each do |config|
       s = config.build_settings
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Allow Firebase umbrella headers to be imported by Swift pods
+
+      # Allow Firebase umbrella to be included from Swift contexts
+      s['CLANG_ENABLE_MODULES'] = 'YES'
+      s['DEFINES_MODULE'] = 'YES'
       s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      # Keep OFF for static libs
+
+      # Keep OFF for static libraries
       s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
     end
   end
