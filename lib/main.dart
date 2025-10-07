@@ -18,19 +18,57 @@ const Color kBrandBlue = Color(0xFF242076);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase before any Firebase API is used.
+  // Start-of-boot breadcrumb
+  FirebaseCrashlytics.instance.log('boot: start');
+
+  // Initialize Firebase before any Firebase API
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Send Flutter framework errors to Crashlytics (works in release).
+  // Enable Crashlytics (in case it was disabled)
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+
+  // Send Flutter framework errors to Crashlytics (works in release)
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-  // ⬅️ FIX: reference the dispatcher via WidgetsBinding (no dart:ui needed)
+  // ⬅️ Important: use WidgetsBinding.instance.platformDispatcher (works on all channels)
   WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true; // tell Flutter we handled it
   };
+
+  // If any widget build throws, show a friendly on-screen panel instead of white
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    final message = details.exceptionAsString();
+    FirebaseCrashlytics.instance.recordError(
+      details.exception,
+      details.stack,
+      fatal: true,
+      reason: 'ErrorWidget.builder caught a build error',
+    );
+    return Material(
+      color: const Color(0xFFFEF6FF),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 320),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
+          ),
+          child: Text(
+            'Startup error:\n\n$message',
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  };
+
+  FirebaseCrashlytics.instance.log('boot: firebase initialized');
 
   runApp(
     ChangeNotifierProvider(
@@ -38,6 +76,18 @@ Future<void> main() async {
       child: const MyApp(),
     ),
   );
+
+  FirebaseCrashlytics.instance.log('boot: runApp called');
+
+  // 10s watchdog — if we’re still not showing UI, log a non-fatal
+  Future.delayed(const Duration(seconds: 10), () {
+    FirebaseCrashlytics.instance.recordError(
+      Exception('watchdog: still white after ~10s'),
+      StackTrace.current,
+      fatal: false,
+      reason: 'No visible UI ~10s after runApp',
+    );
+  });
 }
 
 class MyApp extends StatefulWidget {
@@ -60,24 +110,21 @@ class _MyAppState extends State<MyApp> {
     // present a blank white screen on cold start.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        // (Place any additional one-time boot logic here if needed.)
-        // Example: await Future.delayed(const Duration(milliseconds: 100));
+        // If you ever add one-time boot logic, put it here.
       } catch (e, st) {
         _bootError = e;
         _bootStack = st;
         FirebaseCrashlytics.instance.recordError(e, st, fatal: true);
       } finally {
-        if (mounted) {
-          setState(() => _booting = false);
-        }
+        if (mounted) setState(() => _booting = false);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final lang =
-        context.watch<LanguageProvider>().language; // triggers rebuilds
+    // ⟵ CRITICAL: watch language so MaterialApp rebuilds app-wide
+    final lang = context.watch<LanguageProvider>().language;
 
     final montserrat = GoogleFonts.montserratTextTheme();
 
@@ -194,18 +241,21 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    FirebaseCrashlytics.instance.log('auth: building stream');
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          FirebaseCrashlytics.instance.log('auth: waiting');
+          return const _BootSplash();
         } else if (snapshot.hasData) {
+          FirebaseCrashlytics.instance.log('auth: signed in -> MainNavigation');
           return const MainNavigation();
         } else {
+          FirebaseCrashlytics.instance.log('auth: signed out -> AuthPage');
           return AuthPage(
             onSignedIn: () {
+              FirebaseCrashlytics.instance.log('auth: onSignedIn callback');
               (context as Element).markNeedsBuild();
             },
           );
@@ -234,7 +284,6 @@ class _BootSplash extends StatelessWidget {
         ),
       ),
     );
-    // (Optional) place your logo instead of the spinner.
   }
 }
 
