@@ -9,19 +9,35 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'pages/auth_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// ⬇️ NEW: Crashlytics
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+
 // --- Brand color (Nyari blue) ---
 const Color kBrandBlue = Color(0xFF242076);
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint("Firebase already initialized: $e");
-  }
 
+  // Initialize Firebase before any Firebase API is used.
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // ⬇️ NEW: send Flutter framework errors to Crashlytics (works in release)
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+  // If you prefer to also capture any other uncaught (zone) errors, use this:
+  // runZonedGuarded(() {
+  //   runApp(ChangeNotifierProvider(
+  //     create: (_) => LanguageProvider('en'), // default
+  //     child: const MyApp(),
+  //   ));
+  // }, (error, stack) {
+  //   FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  //   // You can also print to console if desired
+  // });
+
+  // Normal run (Crashlytics still captures Flutter framework errors)
   runApp(
     ChangeNotifierProvider(
       create: (_) => LanguageProvider('en'), // default
@@ -44,15 +60,12 @@ class MyApp extends StatelessWidget {
       title: 'Nyari',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // (Optionally choose font per language — here we keep Montserrat)
         fontFamily: GoogleFonts.montserrat().fontFamily,
-
         colorScheme: ColorScheme.fromSeed(
           seedColor: kBrandBlue,
           primary: kBrandBlue,
           brightness: Brightness.light,
         ),
-
         appBarTheme: const AppBarTheme(
           backgroundColor: kBrandBlue,
           foregroundColor: Colors.white,
@@ -60,9 +73,7 @@ class MyApp extends StatelessWidget {
           systemOverlayStyle: SystemUiOverlayStyle.light,
           centerTitle: false,
         ),
-
         scaffoldBackgroundColor: const Color(0xFFFEF6FF),
-
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
@@ -71,10 +82,8 @@ class MyApp extends StatelessWidget {
             borderSide: BorderSide.none,
           ),
         ),
-
         textTheme: montserrat,
         primaryTextTheme: montserrat,
-
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: kBrandBlue,
@@ -114,7 +123,6 @@ class MyApp extends StatelessWidget {
           backgroundColor: kBrandBlue,
           foregroundColor: Colors.white,
         ),
-
         chipTheme: ChipThemeData(
           labelStyle: const TextStyle(
             fontFamily: 'Montserrat',
@@ -125,7 +133,6 @@ class MyApp extends StatelessWidget {
           secondarySelectedColor: kBrandBlue.withOpacity(.12),
           side: const BorderSide(color: Colors.transparent),
         ),
-
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           selectedItemColor: kBrandBlue,
           selectedLabelStyle: TextStyle(
@@ -137,7 +144,6 @@ class MyApp extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-
         listTileTheme: const ListTileThemeData(
           titleTextStyle: TextStyle(
             fontFamily: 'Montserrat',
@@ -147,8 +153,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // (We don't directly use `lang` here, but watching it above makes the whole
-      // widget tree rebuild when you call setLanguage on the switch.)
+      // Watching `lang` above ensures a rebuild on language change.
       home: const AuthWrapper(),
     );
   }
