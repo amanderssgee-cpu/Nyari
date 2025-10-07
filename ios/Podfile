@@ -1,6 +1,3 @@
-Set-Location "C:\flutter_projects\first_flutter_app"
-
-$pod = @'
 platform :ios, '15.5'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -28,9 +25,8 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-# Build Swift pods as dynamic frameworks (fixes earlier CocoaPods error)
+# Build Swift pods as dynamic frameworks + make non-modular pods generate module maps
 use_frameworks! :linkage => :dynamic
-# Generate module maps for non-modular pods like FirebaseCore/GoogleUtilities
 use_modular_headers!
 
 target 'Runner' do
@@ -43,9 +39,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
       config.build_settings['DEFINES_MODULE'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
     end
   end
 end
-'@
-
-$pod | Set-Content -Encoding ASCII ios\Podfile
