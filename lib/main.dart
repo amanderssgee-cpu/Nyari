@@ -18,27 +18,27 @@ const Color kBrandBlue = Color(0xFF242076);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start-of-boot breadcrumb
+  // Breadcrumb: boot start
   FirebaseCrashlytics.instance.log('boot: start');
 
-  // Initialize Firebase before any Firebase API
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Enable Crashlytics (in case it was disabled)
+  // Ensure Crashlytics is enabled
   await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
 
-  // Send Flutter framework errors to Crashlytics (works in release)
+  // Send Flutter framework errors to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-  // ⬅️ Important: use WidgetsBinding.instance.platformDispatcher (works on all channels)
+  // Catch top-level (zone) errors
   WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true; // tell Flutter we handled it
+    return true; // handled
   };
 
-  // If any widget build throws, show a friendly on-screen panel instead of white
+  // Replace red error boxes with a friendly panel + report to Crashlytics
   ErrorWidget.builder = (FlutterErrorDetails details) {
     final message = details.exceptionAsString();
     FirebaseCrashlytics.instance.recordError(
@@ -72,14 +72,23 @@ Future<void> main() async {
 
   runApp(
     ChangeNotifierProvider(
-      create: (_) => LanguageProvider('en'), // default
+      create: (_) => LanguageProvider('en'),
       child: const MyApp(),
     ),
   );
 
   FirebaseCrashlytics.instance.log('boot: runApp called');
 
-  // 10s watchdog — if we’re still not showing UI, log a non-fatal
+  // --- TEMP: FORCE ONE CRASH so Crashlytics shows your first event ---
+  // Install from TestFlight, open the app, WAIT ~6–8s, it will crash ONCE.
+  // Reopen the app so the report uploads. Then DELETE this whole block.
+  Future.delayed(const Duration(seconds: 6), () {
+    FirebaseCrashlytics.instance.log('boot: forcing test crash');
+    FirebaseCrashlytics.instance.crash();
+  });
+  // -------------------------------------------------------------------
+
+  // Watchdog (non-fatal) in case UI stays white too long
   Future.delayed(const Duration(seconds: 10), () {
     FirebaseCrashlytics.instance.recordError(
       Exception('watchdog: still white after ~10s'),
@@ -92,7 +101,6 @@ Future<void> main() async {
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -105,12 +113,10 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-
-    // Defer any heavy/async app setup to AFTER first frame so we don’t
-    // present a blank white screen on cold start.
+    // Do boot work AFTER first frame so we don’t flash white
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        // If you ever add one-time boot logic, put it here.
+        // Place one-time boot tasks here if needed.
       } catch (e, st) {
         _bootError = e;
         _bootStack = st;
@@ -123,7 +129,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // ⟵ CRITICAL: watch language so MaterialApp rebuilds app-wide
+    // watch language to rebuild MaterialApp when changed
     final lang = context.watch<LanguageProvider>().language;
 
     final montserrat = GoogleFonts.montserratTextTheme();
@@ -307,10 +313,7 @@ class _BootError extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
-            Text(
-              '$error',
-              style: const TextStyle(color: Colors.redAccent),
-            ),
+            Text('$error', style: const TextStyle(color: Colors.redAccent)),
             const SizedBox(height: 12),
             Expanded(
               child: SingleChildScrollView(
