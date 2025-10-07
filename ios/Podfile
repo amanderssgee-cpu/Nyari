@@ -7,7 +7,7 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# Quiet multi-source warnings
+# Keep CocoaPods output sane
 install! 'cocoapods', :warn_for_multiple_pod_sources => false
 
 # Flutter integration
@@ -17,19 +17,19 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Build pods as **static frameworks** (generates -Swift.h for Swift pods)
+  # Build pods as **static frameworks** (needed so Swift pods emit -Swift.h).
   use_frameworks! :linkage => :static
 
-  # Expose ObjC pods as modules
-  use_modular_headers!
+  # DO NOT set `use_modular_headers!` globally — it breaks some Firebase headers.
+  # Instead, make only the toolchain pods modular:
 
-  # gRPC toolchain as modules (fixes modulemap lookups)
+  # gRPC toolchain as modules (fixes modulemap lookups for C++/Core/Proto)
   pod 'gRPC-C++',       :modular_headers => true
   pod 'gRPC-Core',      :modular_headers => true
   pod 'gRPC-ProtoRPC',  :modular_headers => true
   pod 'BoringSSL-GRPC', :modular_headers => true
 
-  # Make Firebase umbrella header a module so frameworks can import <Firebase/Firebase.h>
+  # Make the Firebase umbrella header importable as a module
   pod 'Firebase', :modular_headers => true
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -37,7 +37,7 @@ end
 
 post_install do |installer|
   installer.pods_project.targets.each do |t|
-    # Keep Flutter/Pods build settings aligned
+    # Align with Flutter’s settings (safe if it no-ops)
     begin
       flutter_additional_ios_build_settings(t)
     rescue
@@ -46,16 +46,22 @@ post_install do |installer|
     t.build_configurations.each do |config|
       s = config.build_settings
 
-      # Baseline + simulator arch workaround
+      # Baseline + simulator quirk
       s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       s['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
-      # Framework-like behavior so Swift umbrellas resolve cleanly
+      # Ensure module support and allow umbrella to include public headers cleanly
+      s['CLANG_ENABLE_MODULES'] = 'YES'
       s['DEFINES_MODULE'] = 'YES'
       s['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
-      # Leave OFF for static frameworks
+      # Keep OFF for static frameworks
       s['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+
+      # Ensure headers are found via modules first
+      # (don’t rely on raw Public headers unless the modulemap dictates it)
+      header_search = s['HEADER_SEARCH_PATHS'] || '$(inherited)'
+      s['HEADER_SEARCH_PATHS'] = header_search
     end
   end
 end
