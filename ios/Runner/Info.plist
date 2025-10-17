@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -21,8 +23,20 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<string>1760720020</string>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow camera to take photos for your reviews.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We use your location to improve nearby results.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to show nearby businesses and routes.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow saving images to your library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow photo library access to attach pictures to your reviews.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -41,21 +55,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-  <key>NSLocationWhenInUseUsageDescription</key>
-  <string>We use your location to show nearby businesses and routes.</string>
-  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-  <string>We use your location to improve nearby results.</string>
-  <key>NSCameraUsageDescription</key>
-  <string>Allow camera to take photos for your reviews.</string>
-  <key>NSPhotoLibraryUsageDescription</key>
-  <string>Allow photo library access to attach pictures to your reviews.</string>
-  <key>NSPhotoLibraryAddUsageDescription</key>
-  <string>Allow saving images to your library.</string>
 </dict>
 </plist>
-
-

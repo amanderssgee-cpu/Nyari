@@ -41,8 +41,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/nyari_wordmark.png
+
+flutter_icons:
+  android: false
+  ios: true
+  image_path: assets/app_icon/icon.png
+  remove_alpha_ios: true
