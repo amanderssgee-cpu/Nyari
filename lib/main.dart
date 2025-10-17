@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -8,37 +9,32 @@ import 'language_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'pages/auth_page.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// Crashlytics
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
-// --- Brand color (Nyari blue) ---
+/// Brand color (Nyari blue)
 const Color kBrandBlue = Color(0xFF242076);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Breadcrumb: boot start
-  FirebaseCrashlytics.instance.log('boot: start');
-
-  // Initialize Firebase
+  // Initialize Firebase before runApp
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Ensure Crashlytics is enabled
+  // Crashlytics wiring
   await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
 
-  // Send Flutter framework errors to Crashlytics
+  // Flutter framework errors -> Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-  // Catch top-level (zone) errors
+  // Platform dispatcher uncaught errors -> Crashlytics
   WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true; // handled
+    return true;
   };
 
-  // Replace red error boxes with a friendly panel + report to Crashlytics
+  // Friendly error widget + report
   ErrorWidget.builder = (FlutterErrorDetails details) {
     final message = details.exceptionAsString();
     FirebaseCrashlytics.instance.recordError(
@@ -68,33 +64,25 @@ Future<void> main() async {
     );
   };
 
-  FirebaseCrashlytics.instance.log('boot: firebase initialized');
-
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => LanguageProvider('en'),
-      child: const MyApp(),
-    ),
-  );
-
-  FirebaseCrashlytics.instance.log('boot: runApp called');
-
-  // --- TEMP: FORCE ONE CRASH so Crashlytics shows your first event ---
-  // Install from TestFlight, open the app, WAIT ~6–8s, it will crash ONCE.
-  // Reopen the app so the report uploads. Then DELETE this whole block.
-  Future.delayed(const Duration(seconds: 6), () {
-    FirebaseCrashlytics.instance.log('boot: forcing test crash');
-    FirebaseCrashlytics.instance.crash();
+  // Run the app inside a zone to capture any sync top-level errors
+  runZonedGuarded(() {
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => LanguageProvider('en'),
+        child: const MyApp(),
+      ),
+    );
+  }, (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
   });
-  // -------------------------------------------------------------------
 
-  // Watchdog (non-fatal) in case UI stays white too long
+  // Non-fatal watchdog if UI seems stuck (optional)
   Future.delayed(const Duration(seconds: 10), () {
     FirebaseCrashlytics.instance.recordError(
-      Exception('watchdog: still white after ~10s'),
+      Exception('watchdog: no visible UI ~10s after runApp'),
       StackTrace.current,
       fatal: false,
-      reason: 'No visible UI ~10s after runApp',
+      reason: 'Startup took unusually long',
     );
   });
 }
@@ -113,7 +101,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Do boot work AFTER first frame so we don’t flash white
+    // Do any one-time boot tasks after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         // Place one-time boot tasks here if needed.
@@ -233,6 +221,7 @@ class _MyAppState extends State<MyApp> {
       title: 'Nyari',
       debugShowCheckedModeBanner: false,
       theme: theme,
+      // (lang) is currently unused but kept to trigger rebuilds on language change
       home: _booting
           ? const _BootSplash()
           : (_bootError != null
