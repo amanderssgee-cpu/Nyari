@@ -2,7 +2,6 @@
 description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: "none"
 
-# Bump for this release
 version: 1.0.1+161
 
 environment:
@@ -53,28 +52,23 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.1
   flutter_native_splash: ^2.4.6
 
+# ---------- iOS launcher icon generation ONLY ----------
+flutter_launcher_icons:
+  ios: true
+  android: false
+  image_path_ios: assets/app_icon/nyari_icon.png
+  remove_alpha_ios: true
+  ios_icon_name: AppIcon
+
 flutter:
   uses-material-design: true
   assets:
     - assets/images/nyari_wordmark.png
     - assets/splash/nyari_full.png
     - assets/splash/nyari_android12.png
-  # (No need to list assets/app_icon/*; the icon tool reads directly)
-
-# ---------- iOS launcher icon generation ----------
-flutter_launcher_icons:
-  ios: true
-  android: false
-  image_path_ios: assets/app_icon/nyari_icon.png   # 1024x1024 PNG
-  remove_alpha_ios: true
-  ios_icon_name: AppIcon
 
 # ---------- Branded splash screen ----------
 flutter_native_splash:
-  android: true
-  ios: true
-
-  # iOS + Android <= 11
   color: "#201E50"
   image: assets/splash/nyari_full.png
   color_dark: "#201E50"
@@ -82,7 +76,9 @@ flutter_native_splash:
   android_gravity: center
   ios_content_mode: scaleAspectFit
 
-  # Android 12+ system splash
   android_12:
     color: "#201E50"
     image: assets/splash/nyari_android12.png
+
+  android: true
+  ios: true
