@@ -2,7 +2,8 @@
 description: A lifestyle & local discovery app built with Flutter + Firebase
 publish_to: "none"
 
-version: 1.0.0+161
+# Bump for this release
+version: 1.0.1+161
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -49,40 +50,31 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-<<<<<<< HEAD
   flutter_launcher_icons: ^0.14.1
-=======
-  flutter_launcher_icons: ^0.13.1
   flutter_native_splash: ^2.4.6
-
-# ---------- iOS launcher icon generation ONLY ----------
-flutter_launcher_icons:
-  ios: true
-  android: false
-  image_path_ios: assets/app_icon/nyari_icon.png   # 1024x1024 PNG
-  remove_alpha_ios: true
-  ios_icon_name: AppIcon                            # force set name = AppIcon
->>>>>>> 2c1e312 (local: icon + plist + main + pubspec changes)
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/nyari_wordmark.png
-<<<<<<< HEAD
-
-flutter_icons:
-  android: false
-  ios: true
-  image_path: assets/app_icon/icon.png
-  remove_alpha_ios: true
-=======
     - assets/splash/nyari_full.png
     - assets/splash/nyari_android12.png
-    # (No need to list assets/app_icon/*; the launcher tool reads directly)
+  # (No need to list assets/app_icon/*; the icon tool reads directly)
+
+# ---------- iOS launcher icon generation ----------
+flutter_launcher_icons:
+  ios: true
+  android: false
+  image_path_ios: assets/app_icon/nyari_icon.png   # 1024x1024 PNG
+  remove_alpha_ios: true
+  ios_icon_name: AppIcon
 
 # ---------- Branded splash screen ----------
 flutter_native_splash:
-  # Android ≤11 and iOS
+  android: true
+  ios: true
+
+  # iOS + Android <= 11
   color: "#201E50"
   image: assets/splash/nyari_full.png
   color_dark: "#201E50"
@@ -94,7 +86,3 @@ flutter_native_splash:
   android_12:
     color: "#201E50"
     image: assets/splash/nyari_android12.png
-
-  android: true
-  ios: true
->>>>>>> 2c1e312 (local: icon + plist + main + pubspec changes)
