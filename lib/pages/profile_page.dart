@@ -5,11 +5,26 @@ import 'package:provider/provider.dart';
 
 import '../i18n.dart';
 import '../language_provider.dart';
+
+// Saved lists pages & enum
+import '../models/saves.dart';
+import 'saved_businesses_list_page.dart';
+
+// Other pages
 import 'my_reviews_page.dart';
 import 'admin_panel_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
+
+  bool _isAdminEmail(String? email) {
+    if (email == null) return false;
+    const admins = <String>{
+      'gonzales.amanda92@yahoo.com',
+      'nyari.app@gmail.com',
+    };
+    return admins.contains(email.toLowerCase().trim());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,42 +51,21 @@ class ProfilePage extends StatelessWidget {
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text(
-              email,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
+            Text(email,
+                style: const TextStyle(fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 24),
             const Divider(),
 
-            Text(
-              tr(
-                context,
-                en:
-                    "This is where you'll be able to manage your saved places, reviews, and app settings.",
-                id:
-                    "Di sini kamu dapat mengelola tempat tersimpan, ulasan, dan pengaturan aplikasi.",
-              ),
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 24),
-            const Divider(),
-
-            Text(
-              tr(context, en: 'Coming Soon:', id: 'Segera Hadir:'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-
+            // Saved Businesses (opens bottom sheet with list choices)
             ListTile(
               leading: const Icon(Icons.bookmark_border),
               title: Text(
                 tr(context, en: 'Saved Businesses', id: 'Bisnis Tersimpan'),
               ),
-              onTap: () {
-                // placeholder
-              },
+              onTap: () => _openSavedSheet(context),
             ),
 
+            // My Reviews
             ListTile(
               leading: const Icon(Icons.rate_review_outlined),
               title: Text(tr(context, en: 'My Reviews', id: 'Ulasan Saya')),
@@ -83,8 +77,8 @@ class ProfilePage extends StatelessWidget {
               },
             ),
 
-            // Admin panel only for Amanda (kept as-is)
-            if (user?.email == 'gonzales.amanda92@yahoo.com')
+            // Admin panel (only for your two emails)
+            if (_isAdminEmail(user?.email))
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings),
                 title: Text(tr(context, en: 'Admin Panel', id: 'Panel Admin')),
@@ -96,18 +90,20 @@ class ProfilePage extends StatelessWidget {
                 },
               ),
 
+            // Settings placeholder
             ListTile(
               leading: const Icon(Icons.settings),
               title: Text(
                 tr(context, en: 'App Settings', id: 'Pengaturan Aplikasi'),
               ),
               onTap: () {
-                // placeholder
+                // TODO: implement settings page
               },
             ),
 
             const Spacer(),
 
+            // Sign out
             Center(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.logout),
@@ -115,20 +111,111 @@ class ProfilePage extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade600,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 onPressed: () async {
                   await FirebaseAuth.instance.signOut();
-                  (context as Element).markNeedsBuild();
+                  if (context.mounted) (context as Element).markNeedsBuild();
                 },
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _openSavedSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  tr(context, en: 'Saved Businesses', id: 'Bisnis Tersimpan'),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  tr(context,
+                      en: 'Pick a list to view',
+                      id: 'Pilih daftar untuk dilihat'),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.all_inbox_outlined),
+                title:
+                    Text(tr(context, en: 'All Saved', id: 'Semua Tersimpan')),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SavedBusinessesListPage(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 0),
+
+              // Wishlist
+              ListTile(
+                leading: const Icon(Icons.bookmark_add_outlined),
+                title: Text(tr(context, en: 'Wishlist', id: 'Wishlist')),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SavedBusinessesListPage(filter: SaveList.wishlist),
+                    ),
+                  );
+                },
+              ),
+
+              // Favorites
+              ListTile(
+                leading: const Icon(Icons.favorite_border),
+                title: Text(tr(context, en: 'Favorites', id: 'Favorit')),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SavedBusinessesListPage(filter: SaveList.favorites),
+                    ),
+                  );
+                },
+              ),
+
+              // Visited
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title:
+                    Text(tr(context, en: 'Visited', id: 'Pernah Dikunjungi')),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SavedBusinessesListPage(filter: SaveList.visited),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -7,19 +7,27 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// ---- Load MAPS_API_KEY from (priority): Gradle prop -> ENV -> local.properties
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val MAPS_API_KEY: String =
+    (project.findProperty("MAPS_API_KEY") as String?)
+        ?: System.getenv("MAPS_API_KEY")
+        ?: localProps.getProperty("MAPS_API_KEY", "")
+
 android {
     namespace = "com.nyari.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
-    // Java 17 / Kotlin 17 target
+    // Java 17 / Kotlin 17
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
 
     defaultConfig {
         applicationId = "com.nyari.app"
@@ -28,11 +36,14 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Inject Google Maps key into manifest (used by <meta-data> tags)
+        manifestPlaceholders["MAPS_API_KEY"] = MAPS_API_KEY
     }
 
-    // ---- SIGNING (correct paths + null-safe) ----
+    // ---- Signing (release if key.properties present; else fallback to debug) ----
     val props = Properties()
-    val propsFile = rootProject.file("key.properties")   // <-- FIX: look in android/key.properties
+    val propsFile = rootProject.file("key.properties")
     val haveKey = propsFile.exists()
 
     if (haveKey) {
@@ -51,8 +62,7 @@ android {
         ) {
             signingConfigs {
                 create("release") {
-                    // storeFile path is relative to the android/ folder
-                    storeFile = rootProject.file(storeFileName)   // e.g. "upload-keystore.jks"
+                    storeFile = rootProject.file(storeFileName) // e.g. upload-keystore.jks
                     this.storePassword = storePassword
                     this.keyAlias = keyAlias
                     this.keyPassword = keyPassword
@@ -68,15 +78,13 @@ android {
 
     buildTypes {
         getByName("release") {
-            // Use release signing if configured, else fall back to debug so you can still build
             val releaseConf = signingConfigs.findByName("release")
             signingConfig = releaseConf ?: signingConfigs.getByName("debug")
-
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
         getByName("debug") {
@@ -86,9 +94,7 @@ android {
     }
 }
 
-flutter {
-    source = "../.."
-}
+flutter { source = "../.." }
 
 // Firebase / Google services plugin
 apply(plugin = "com.google.gms.google-services")

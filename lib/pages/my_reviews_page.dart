@@ -24,11 +24,10 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
   Future<Map<String, dynamic>?> _fetchBusiness(String businessId) {
     return _bizCache.putIfAbsent(businessId, () async {
       try {
-        final snap =
-            await FirebaseFirestore.instance
-                .collection('businesses')
-                .doc(businessId)
-                .get();
+        final snap = await FirebaseFirestore.instance
+            .collection('businesses')
+            .doc(businessId)
+            .get();
         if (!snap.exists) return null;
         return snap.data() as Map<String, dynamic>;
       } catch (_) {
@@ -42,15 +41,33 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
     final isIndo = context.watch<LanguageProvider>().isIndo;
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid;
-    final email = user?.email;
 
-    // Single stream for *all* reviews, then filter client-side to the user.
-    // For large datasets, store `uid` in the review doc and query with .where('uid', isEqualTo: uid)
-    final stream =
-        FirebaseFirestore.instance
-            .collectionGroup('reviews')
-            .orderBy('timestamp', descending: true)
-            .snapshots();
+    if (uid == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(tr(context, en: 'My Reviews', id: 'Ulasan Saya')),
+        ),
+        body: Center(
+          child: Text(
+            tr(
+              context,
+              en: 'Please sign in to view your reviews.',
+              id: 'Silakan masuk untuk melihat ulasan Anda.',
+            ),
+            style: const TextStyle(color: Colors.black54),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    // ✅ Server-side sorting using the index you already enabled:
+    // Collection group: reviews | Fields: userId (ASC), timestamp (DESC)
+    final stream = FirebaseFirestore.instance
+        .collectionGroup('reviews')
+        .where('userId', isEqualTo: uid)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
 
     return Scaffold(
       appBar: AppBar(
@@ -61,13 +78,14 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
-              child: Text(
-                tr(
-                  context,
-                  en: 'Something went wrong.',
-                  id: 'Terjadi kesalahan.',
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  tr(context,
+                      en: 'Something went wrong.', id: 'Terjadi kesalahan.'),
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
                 ),
-                style: const TextStyle(color: Colors.red),
               ),
             );
           }
@@ -75,21 +93,10 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Filter reviews that belong to the current user
-          final all = snapshot.data?.docs ?? const [];
-          final mine =
-              all.where((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final rUid = data['uid'] ?? data['userId']; // common keys
-                final rEmail =
-                    (data['reviewerEmail'] ?? data['email'])?.toString();
-                if (uid != null && rUid != null && '$rUid' == uid) return true;
-                if (email != null && rEmail != null && rEmail == email)
-                  return true;
-                return false;
-              }).toList();
+          final docs =
+              snapshot.data?.docs ?? const <QueryDocumentSnapshot<Object?>>[];
 
-          if (mine.isEmpty) {
+          if (docs.isEmpty) {
             return RefreshIndicator(
               onRefresh: () async {},
               child: SingleChildScrollView(
@@ -103,10 +110,8 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                         en: 'You haven’t written any reviews yet.',
                         id: 'Kamu belum menulis ulasan.',
                       ),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black54,
-                      ),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.black54),
                     ),
                   ),
                 ),
@@ -117,68 +122,66 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
           return RefreshIndicator(
             onRefresh: () async {},
             child: ListView.builder(
-              itemCount: mine.length,
+              itemCount: docs.length,
               itemBuilder: (context, index) {
-                final doc = mine[index];
+                final doc = docs[index];
                 final data = doc.data() as Map<String, dynamic>;
 
-                // Extract parent businessId from path: businesses/{id}/reviews/{rid}
+                // Parent path: businesses/{id}/reviews/{uid}
                 final businessId = doc.reference.parent.parent?.id;
 
                 final ratingRaw = data['rating'];
-                final double rating =
-                    ratingRaw is int
-                        ? ratingRaw.toDouble()
-                        : (ratingRaw is double
-                            ? ratingRaw
-                            : double.tryParse('$ratingRaw') ?? 0.0);
+                final double rating = ratingRaw is int
+                    ? ratingRaw.toDouble()
+                    : (ratingRaw is double
+                        ? ratingRaw
+                        : double.tryParse('$ratingRaw') ?? 0.0);
 
-                final commentOriginal = data['comment']?.toString() ?? '';
-                final initials = data['initials']?.toString() ?? '?';
-                final reviewerName = data['reviewerName']?.toString() ?? '';
-                final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+                final commentOriginal = (data['comment'] ?? '').toString();
+                final initials = (data['initials'] ?? '?').toString();
+                final reviewerName = (data['reviewerName'] ?? '').toString();
+
+                // Display timestamp (createdAt). If you later prefer edits first,
+                // switch to updatedAt once that index is Enabled.
+                final shownTime = (data['timestamp'] as Timestamp?)?.toDate() ??
+                    (data['updatedAt'] as Timestamp?)?.toDate();
 
                 return FutureBuilder<Map<String, dynamic>?>(
-                  future:
-                      businessId != null
-                          ? _fetchBusiness(businessId)
-                          : Future.value(null),
+                  future: businessId != null
+                      ? _fetchBusiness(businessId)
+                      : Future.value(null),
                   builder: (context, bizSnap) {
                     final biz = bizSnap.data;
-                    final bizName =
-                        biz == null
-                            ? (isIndo
-                                ? 'Bisnis tidak ditemukan'
-                                : 'Business not found')
-                            : (isIndo
-                                ? (biz['name_id'] ?? biz['name'] ?? '')
-                                : (biz['name'] ?? ''));
+                    final bizName = biz == null
+                        ? (isIndo
+                            ? 'Bisnis tidak ditemukan'
+                            : 'Business not found')
+                        : (isIndo
+                            ? (biz['name_id'] ?? biz['name'] ?? '')
+                            : (biz['name'] ?? ''));
                     final imageUrl = biz?['imageUrl'] as String?;
-                    final tapToOpen = tr(
-                      context,
-                      en: 'Open Profile',
-                      id: 'Buka Profil',
-                    );
 
                     return Card(
                       margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                          horizontal: 16, vertical: 8),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(12),
-                        leading:
-                            imageUrl != null
-                                ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    imageUrl,
-                                    width: 54,
-                                    height: 54,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                                : const Icon(Icons.store, size: 40),
+                        leading: imageUrl != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  imageUrl,
+                                  width: 54,
+                                  height: 54,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : CircleAvatar(
+                                child: Text(
+                                  (initials.isNotEmpty ? initials : '?')
+                                      .substring(0, 1),
+                                ),
+                              ),
                         title: Text(
                           bizName,
                           maxLines: 1,
@@ -199,16 +202,14 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            if (timestamp != null)
+                            if (shownTime != null)
                               Text(
                                 timeago.format(
-                                  timestamp,
+                                  shownTime,
                                   locale: isIndo ? 'id' : 'en',
                                 ),
                                 style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+                                    fontSize: 12, color: Colors.grey),
                               ),
                             if (commentOriginal.isNotEmpty) ...[
                               const SizedBox(height: 6),
@@ -223,9 +224,7 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                                 tr(context, en: 'by', id: 'oleh') +
                                     ' $reviewerName',
                                 style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+                                    fontSize: 12, color: Colors.grey),
                               ),
                             ],
                             if (bizSnap.connectionState ==
@@ -237,22 +236,19 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                           ],
                         ),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap:
-                            (biz == null || businessId == null)
-                                ? null
-                                : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => BusinessProfilePage(
-                                            businessId: businessId,
-                                            businessData: biz,
-                                          ),
+                        onTap: (biz == null || businessId == null)
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BusinessProfilePage(
+                                      businessId: businessId,
+                                      businessData: biz,
                                     ),
-                                  );
-                                },
-                        onLongPress: () {},
+                                  ),
+                                );
+                              },
                         dense: false,
                       ),
                     );

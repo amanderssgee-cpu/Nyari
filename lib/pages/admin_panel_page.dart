@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../admin.dart'; // 👈 add this
 import 'edit_business_page.dart';
 
 class AdminPanelPage extends StatelessWidget {
   final CollectionReference<Map<String, dynamic>> businessesRef =
       FirebaseFirestore.instance.collection('businesses');
 
-  AdminPanelPage({super.key}); // <-- remove 'const'
+  AdminPanelPage({super.key}); // (non-const is fine)
 
   @override
   Widget build(BuildContext context) {
+    // 👇 hard gate the whole screen
+    if (!isCurrentUserAdmin) {
+      return const Scaffold(
+        body: Center(child: Text('403 — Admins only')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Admin Panel')),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -19,7 +28,7 @@ class AdminPanelPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final docs = snapshot.data!.docs; // List<QueryDocumentSnapshot<Map>>
+          final docs = snapshot.data!.docs;
           if (docs.isEmpty) {
             return const Center(child: Text('No businesses yet'));
           }
@@ -28,7 +37,7 @@ class AdminPanelPage extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final doc = docs[index];
-              final data = doc.data(); // Map<String, dynamic>
+              final data = doc.data();
 
               return ListTile(
                 title: Text((data['name'] ?? '') as String),
@@ -38,7 +47,6 @@ class AdminPanelPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      // pass the doc if your Edit page expects a DocumentSnapshot
                       builder: (_) => EditBusinessPage(business: doc),
                     ),
                   );
